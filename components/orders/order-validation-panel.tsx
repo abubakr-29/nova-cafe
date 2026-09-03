@@ -23,7 +23,7 @@ export default function OrderValidationPanel({
   }
 
   return (
-    <section className="mb-8 rounded-[26px] border border-[#d7a45a]/25 bg-[#d7a45a]/[0.04] p-5">
+    <section className="mb-8 rounded-[26px] border border-[#d7a45a]/25 bg-[#d7a45a]/4 p-5">
       <div className="flex items-center gap-2">
         <ShieldAlert size={16} className="text-[#d7a45a]" />
 

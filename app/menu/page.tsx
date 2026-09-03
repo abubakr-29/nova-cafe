@@ -147,14 +147,12 @@ export default function MenuPage() {
           <button className="rounded-full border border-white/10 px-4 py-2 text-sm text-white/60 transition hover:bg-white/5">
             Table 07
           </button>
-          {process.env.NODE_ENV === "development" && (
-            <Link
-              href="/dashboard"
-              className="rounded-full border border-dashed border-white/20 px-4 py-2 text-sm text-white/40 transition hover:bg-white/5"
-            >
-              Dev: dashboard
-            </Link>
-          )}
+          <Link
+            href="/dashboard"
+            className="rounded-full border border-dashed border-white/20 px-4 py-2 text-sm text-white/40 transition hover:bg-white/5"
+          >
+            Dev: dashboard
+          </Link>
         </header>
 
         {currentSession?.billRequested &&
