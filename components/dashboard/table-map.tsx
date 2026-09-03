@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell } from "lucide-react";
+import { Bell, Check } from "lucide-react";
 
 import type { RestaurantTable } from "@/types/table";
 
@@ -9,6 +9,7 @@ type TableMapProps = {
   selectedTableId: string | null;
   onSelectTable: (table: RestaurantTable) => void;
   billRequestedTableIds: Set<string>;
+  paidTableIds: Set<string>;
 };
 
 const statusStyles = {
@@ -42,6 +43,7 @@ export default function TableMap({
   selectedTableId,
   onSelectTable,
   billRequestedTableIds,
+  paidTableIds,
 }: TableMapProps) {
   return (
     <div className="relative aspect-[1.35] min-h-70 overflow-hidden rounded-4xl border border-white/8 bg-[#111114] sm:min-h-100 lg:min-h-130">
@@ -81,6 +83,7 @@ export default function TableMap({
         const status = statusStyles[table.status];
         const selected = table.id === selectedTableId;
         const billRequested = billRequestedTableIds.has(table.id);
+        const paid = paidTableIds.has(table.id);
 
         return (
           <button
@@ -107,6 +110,12 @@ export default function TableMap({
             {billRequested && (
               <span className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#d7a45a] text-[#0b0b0d] shadow-[0_0_0_3px_#111114]">
                 <Bell size={11} strokeWidth={2.5} />
+              </span>
+            )}
+
+            {paid && (
+              <span className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-[#0b0b0d] shadow-[0_0_0_3px_#111114]">
+                <Check size={11} strokeWidth={3} />
               </span>
             )}
 

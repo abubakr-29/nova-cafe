@@ -13,6 +13,7 @@ export type MenuItem = {
   image: string;
   popular?: boolean;
   vegetarian?: boolean;
+  available?: boolean;
   sizes?: MenuOption[];
   addons?: MenuOption[];
 };

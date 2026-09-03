@@ -14,6 +14,10 @@ function generateOrderNumber() {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
+function generateValidationCode() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 export function createOrder({
   cart,
   restaurantId,
@@ -49,6 +53,7 @@ export function createOrder({
     id: crypto.randomUUID(),
 
     orderNumber: generateOrderNumber(),
+    validationCode: generateValidationCode(),
 
     restaurantId,
     tableId,
@@ -60,7 +65,7 @@ export function createOrder({
     tax: 0,
     total: subtotal,
 
-    status: "pending",
+    status: "awaiting_validation",
 
     createdAt: new Date().toISOString(),
   };

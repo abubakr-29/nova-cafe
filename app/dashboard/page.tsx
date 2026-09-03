@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import {
@@ -20,10 +21,17 @@ import OrderQueue from "@/components/orders/order-queue";
 import TableSessionDrawer from "@/components/dashboard/table-session";
 import BillSheet from "@/components/dashboard/bill-sheet";
 import { useRestaurantData } from "@/lib/restaurant-data-context";
+import OrderValidationPanel from "@/components/orders/order-validation-panel";
 
 export default function DashboardPage() {
-  const { orders, sessions, updateOrderStatus, requestBill, markSessionPaid } =
-    useRestaurantData();
+  const {
+    orders,
+    sessions,
+    updateOrderStatus,
+    requestBill,
+    markSessionPaid,
+    validateOrder,
+  } = useRestaurantData();
 
   const [selectedTableId, setSelectedTableId] = useState<string | null>(
     "table-07",
@@ -89,6 +97,16 @@ export default function DashboardPage() {
     [sessions],
   );
 
+  const paidTableIds = useMemo(
+    () =>
+      new Set(
+        sessions
+          .filter((session) => session.paymentStatus === "paid")
+          .map((session) => session.tableId),
+      ),
+    [sessions],
+  );
+
   function handleRequestBillForTable(tableId: string) {
     const session = sessions.find((s) => s.tableId === tableId);
 
@@ -119,7 +137,11 @@ export default function DashboardPage() {
 
             <NavItem icon={<ShoppingBag size={16} />} label="Orders" />
 
-            <NavItem icon={<Menu size={16} />} label="Menu" />
+            <NavItem
+              href="/dashboard/menu"
+              icon={<Menu size={16} />}
+              label="Menu"
+            />
           </nav>
 
           <div className="mt-auto space-y-1">
@@ -225,6 +247,7 @@ export default function DashboardPage() {
                   selectedTableId={selectedTableId}
                   onSelectTable={handleSelectTable}
                   billRequestedTableIds={billRequestedTableIds}
+                  paidTableIds={paidTableIds}
                 />
 
                 <TableDetail
@@ -234,6 +257,9 @@ export default function DashboardPage() {
                     selectedTable
                       ? billRequestedTableIds.has(selectedTable.id)
                       : false
+                  }
+                  paid={
+                    selectedTable ? paidTableIds.has(selectedTable.id) : false
                   }
                   onRequestBill={handleRequestBillForTable}
                 />
@@ -263,6 +289,11 @@ export default function DashboardPage() {
                   active
                 </span>
               </div>
+
+              <OrderValidationPanel
+                orders={orders}
+                onValidate={validateOrder}
+              />
 
               <OrderQueue orders={orders} onStatusChange={updateOrderStatus} />
 
@@ -295,23 +326,34 @@ export default function DashboardPage() {
 }
 
 function NavItem({
+  href,
   icon,
   label,
   active = false,
 }: {
+  href?: string;
   icon: ReactNode;
   label: string;
   active?: boolean;
 }) {
+  const className = `flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+    active
+      ? "bg-white/6 text-white"
+      : "text-white/35 hover:bg-white/4 hover:text-white/70"
+  }`;
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {icon}
+
+        <span>{label}</span>
+      </Link>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-        active
-          ? "bg-white/6 text-white"
-          : "text-white/35 hover:bg-white/4 hover:text-white/70"
-      }`}
-    >
+    <button type="button" className={className}>
       {icon}
 
       <span>{label}</span>

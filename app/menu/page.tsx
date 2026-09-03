@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 
 import MenuCard from "@/components/menu/menu-card";
 import CartDrawer from "@/components/cart/cart-drawer";
-import { menuItems } from "@/data/menu";
 import type { MenuItem } from "@/types/menu";
 import MenuItemSheet from "@/components/menu/menu-item-sheet";
 import type { CartItem } from "@/types/cart";
@@ -21,6 +20,7 @@ import {
 } from "@/lib/cart";
 import { useRestaurantData } from "@/lib/restaurant-data-context";
 import BillView from "@/components/customer/bill-view";
+import Link from "next/link";
 
 const categories = [
   "All",
@@ -40,8 +40,14 @@ export default function MenuPage() {
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [billViewOpen, setBillViewOpen] = useState(false);
 
-  const { orders, sessions, addOrder, requestBill, markSessionPaid } =
-    useRestaurantData();
+  const {
+    orders,
+    sessions,
+    menuItems,
+    addOrder,
+    requestBill,
+    markSessionPaid,
+  } = useRestaurantData();
 
   const currentSession =
     sessions.find((session) => session.tableId === "table-07") ?? null;
@@ -141,6 +147,14 @@ export default function MenuPage() {
           <button className="rounded-full border border-white/10 px-4 py-2 text-sm text-white/60 transition hover:bg-white/5">
             Table 07
           </button>
+          {process.env.NODE_ENV === "development" && (
+            <Link
+              href="/dashboard"
+              className="rounded-full border border-dashed border-white/20 px-4 py-2 text-sm text-white/40 transition hover:bg-white/5"
+            >
+              Dev: dashboard
+            </Link>
+          )}
         </header>
 
         {currentSession?.billRequested &&

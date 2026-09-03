@@ -1,6 +1,13 @@
 "use client";
 
-import { Bell, ChevronRight, Clock3, Users, Utensils } from "lucide-react";
+import {
+  Bell,
+  Check,
+  ChevronRight,
+  Clock3,
+  Users,
+  Utensils,
+} from "lucide-react";
 
 import type { RestaurantTable } from "@/types/table";
 
@@ -8,6 +15,7 @@ type TableDetailProps = {
   table: RestaurantTable | null;
   onViewSession: (tableId: string) => void;
   billRequested: boolean;
+  paid: boolean;
   onRequestBill: (tableId: string) => void;
 };
 
@@ -22,6 +30,7 @@ export default function TableDetail({
   table,
   onViewSession,
   billRequested,
+  paid,
   onRequestBill,
 }: TableDetailProps) {
   if (!table) {
@@ -179,15 +188,20 @@ export default function TableDetail({
         )}
       </div>
 
-      {/* Bill requested banner */}
-      {billRequested && (
-        <div className="mx-6 mb-6 flex items-center gap-3 rounded-2xl border border-[#d7a45a]/25 bg-[#d7a45a]/8 px-4 py-3">
-          <Bell size={15} className="text-[#d7a45a]" />
-
-          <p className="text-xs text-[#d7a45a]">
-            Bill requested for this table
-          </p>
+      {paid ? (
+        <div className="mx-6 mb-6 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-400/8 px-4 py-3">
+          <Check size={15} className="text-emerald-400" />
+          <p className="text-xs text-emerald-400">This table has paid</p>
         </div>
+      ) : (
+        billRequested && (
+          <div className="mx-6 mb-6 flex items-center gap-3 rounded-2xl border border-[#d7a45a]/25 bg-[#d7a45a]/8 px-4 py-3">
+            <Bell size={15} className="text-[#d7a45a]" />
+            <p className="text-xs text-[#d7a45a]">
+              Bill requested for this table
+            </p>
+          </div>
+        )
       )}
 
       {/* Actions */}
@@ -202,14 +216,21 @@ export default function TableDetail({
               View session
             </button>
 
-            <button
-              type="button"
-              onClick={() => onRequestBill(table.id)}
-              disabled={billRequested}
-              className="rounded-full bg-[#f5f2ea] py-3 text-xs font-medium text-[#0b0b0d] transition hover:scale-[1.01] disabled:cursor-default disabled:bg-white/8 disabled:text-white/35 disabled:hover:scale-100"
-            >
-              {billRequested ? "Bill requested" : "Request bill"}
-            </button>
+            {paid ? (
+              <div className="flex items-center justify-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/8 py-3 text-xs text-emerald-400">
+                <Check size={13} />
+                Paid
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onRequestBill(table.id)}
+                disabled={billRequested}
+                className="rounded-full bg-[#f5f2ea] py-3 text-xs font-medium text-[#0b0b0d] transition hover:scale-[1.01] disabled:cursor-default disabled:bg-white/8 disabled:text-white/35 disabled:hover:scale-100"
+              >
+                {billRequested ? "Bill requested" : "Request bill"}
+              </button>
+            )}
           </div>
         ) : (
           <button

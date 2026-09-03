@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, Check, Clock3, Hash } from "lucide-react";
+import { useEffect } from "react";
 
 import type { Order } from "@/types/order";
 
@@ -17,9 +18,19 @@ export default function OrderConfirmation({
   onRequestBill,
   onDone,
 }: OrderConfirmationProps) {
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-120 flex items-center justify-center bg-[#0b0b0d] px-5">
-      <div className="w-full max-w-lg text-center">
+    <div className="fixed inset-0 z-120 overflow-y-auto bg-[#0b0b0d] px-5 py-8">
+      <div className="mx-auto w-full max-w-lg text-center">
         {/* Success icon */}
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#d7a45a]/30 bg-[#d7a45a]/10 text-[#d7a45a]">
           <Check size={32} strokeWidth={1.8} />
@@ -122,6 +133,22 @@ export default function OrderConfirmation({
               Preparing soon
             </div>
           </div>
+        </div>
+
+        {/* Validation code */}
+        <div className="mt-6 rounded-[28px] border border-[#d7a45a]/25 bg-[#d7a45a]/6 p-5 text-center">
+          <p className="text-[10px] uppercase tracking-[0.25em] text-[#d7a45a]/70">
+            Show this to staff
+          </p>
+
+          <p className="mt-2 text-3xl font-medium tracking-[0.3em] text-[#d7a45a]">
+            {order.validationCode}
+          </p>
+
+          <p className="mt-2 text-xs text-white/30">
+            A staff member will confirm your order using this code before
+            it&apos;s sent to the kitchen.
+          </p>
         </div>
 
         {/* Request bill */}

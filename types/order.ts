@@ -1,6 +1,7 @@
 import type { MenuOption } from "@/types/menu";
 
 export type OrderStatus =
+  | "awaiting_validation"
   | "pending"
   | "confirmed"
   | "preparing"
@@ -30,6 +31,7 @@ export type OrderItem = {
 export type Order = {
   id: string;
   orderNumber: string;
+  validationCode: string;
 
   restaurantId: string;
   tableId: string;
