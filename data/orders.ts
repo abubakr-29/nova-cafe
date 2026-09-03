@@ -4,6 +4,7 @@ export const orders: Order[] = [
   {
     id: "order-1052",
     orderNumber: "1052",
+    validationCode: "4821",
     restaurantId: "nova-cafe",
     tableId: "table-07",
     tableName: "Table 07",
@@ -58,6 +59,7 @@ export const orders: Order[] = [
   {
     id: "order-1049",
     orderNumber: "1049",
+    validationCode: "3067",
     restaurantId: "nova-cafe",
     tableId: "table-07",
     tableName: "Table 07",
@@ -106,6 +108,7 @@ export const orders: Order[] = [
   {
     id: "order-1050",
     orderNumber: "1050",
+    validationCode: "5194",
     restaurantId: "nova-cafe",
     tableId: "table-05",
     tableName: "Table 05",
@@ -149,6 +152,7 @@ export const orders: Order[] = [
   {
     id: "order-1051",
     orderNumber: "1051",
+    validationCode: "2758",
     restaurantId: "nova-cafe",
     tableId: "table-08",
     tableName: "Table 08",
@@ -192,6 +196,7 @@ export const orders: Order[] = [
   {
     id: "order-1048",
     orderNumber: "1048",
+    validationCode: "9042",
     restaurantId: "nova-cafe",
     tableId: "table-06",
     tableName: "Table 06",
@@ -223,6 +228,7 @@ export const orders: Order[] = [
   {
     id: "order-1047",
     orderNumber: "1047",
+    validationCode: "6613",
     restaurantId: "nova-cafe",
     tableId: "table-06",
     tableName: "Table 06",

@@ -63,7 +63,7 @@ export default function MenuPage() {
 
       return matchesCategory && matchesSearch;
     });
-  }, [activeCategory, search]);
+  }, [activeCategory, search, menuItems]);
 
   function addToCart(item: CartItem) {
     setCart((current) => {
