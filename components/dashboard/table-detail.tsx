@@ -17,6 +17,7 @@ type TableDetailProps = {
   billRequested: boolean;
   paid: boolean;
   onRequestBill: (tableId: string) => void;
+  onFreeTable: (tableId: string) => void;
 };
 
 const statusLabels = {
@@ -32,6 +33,7 @@ export default function TableDetail({
   billRequested,
   paid,
   onRequestBill,
+  onFreeTable,
 }: TableDetailProps) {
   if (!table) {
     return (
@@ -191,7 +193,9 @@ export default function TableDetail({
       {paid ? (
         <div className="mx-6 mb-6 flex items-center gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-400/8 px-4 py-3">
           <Check size={15} className="text-emerald-400" />
-          <p className="text-xs text-emerald-400">This table has paid</p>
+          <p className="text-xs text-emerald-400">
+            Paid. Free up the table once it&apos;s cleared.
+          </p>
         </div>
       ) : (
         billRequested && (
@@ -217,10 +221,14 @@ export default function TableDetail({
             </button>
 
             {paid ? (
-              <div className="flex items-center justify-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/8 py-3 text-xs text-emerald-400">
+              <button
+                type="button"
+                onClick={() => onFreeTable(table.id)}
+                className="flex items-center justify-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/8 py-3 text-xs text-emerald-400 transition hover:bg-emerald-400/15"
+              >
                 <Check size={13} />
-                Paid
-              </div>
+                Free up table
+              </button>
             ) : (
               <button
                 type="button"

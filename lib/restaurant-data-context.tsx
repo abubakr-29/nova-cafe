@@ -5,20 +5,24 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { orders as initialOrders } from "@/data/orders";
 import { sessions as initialSessions } from "@/data/sessions";
 import { menuItems as initialMenuItems } from "@/data/menu";
+import { tables as initialTables } from "@/data/tables";
 import type { Order, OrderStatus } from "@/types/order";
 import type { TableSession } from "@/types/session";
 import type { MenuItem } from "@/types/menu";
+import type { RestaurantTable } from "@/types/table";
 
 type RestaurantDataContextValue = {
   orders: Order[];
   sessions: TableSession[];
   menuItems: MenuItem[];
+  tables: RestaurantTable[];
   addOrder: (order: Order) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   validateOrder: (orderId: string, code: string) => boolean;
   requestBill: (sessionId: string) => void;
   markSessionPaid: (sessionId: string) => void;
   toggleItemAvailability: (itemId: string) => void;
+  closeTableSession: (tableId: string) => void;
 };
 
 const RestaurantDataContext = createContext<RestaurantDataContextValue | null>(
@@ -29,6 +33,7 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [sessions, setSessions] = useState<TableSession[]>(initialSessions);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(initialMenuItems);
+  const [tables, setTables] = useState<RestaurantTable[]>(initialTables);
 
   function addOrder(order: Order) {
     setOrders((current) => [...current, order]);
@@ -76,6 +81,31 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function closeTableSession(tableId: string) {
+    setSessions((current) =>
+      current.map((session) =>
+        session.tableId === tableId
+          ? { ...session, status: "closed" }
+          : session,
+      ),
+    );
+
+    setTables((current) =>
+      current.map((table) =>
+        table.id === tableId
+          ? {
+              ...table,
+              status: "available",
+              sessionId: undefined,
+              guestCount: undefined,
+              orders: undefined,
+              currentTotal: undefined,
+            }
+          : table,
+      ),
+    );
+  }
+
   function toggleItemAvailability(itemId: string) {
     setMenuItems((current) =>
       current.map((item) =>
@@ -92,12 +122,14 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
         orders,
         sessions,
         menuItems,
+        tables,
         addOrder,
         updateOrderStatus,
         validateOrder,
         requestBill,
         markSessionPaid,
         toggleItemAvailability,
+        closeTableSession,
       }}
     >
       {children}

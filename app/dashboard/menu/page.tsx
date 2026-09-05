@@ -1,75 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
-import {
-  Bell,
-  LayoutGrid,
-  Menu,
-  Settings,
-  ShoppingBag,
-  Utensils,
-} from "lucide-react";
+import { Bell } from "lucide-react";
 
 import { useRestaurantData } from "@/lib/restaurant-data-context";
 
 export default function DashboardMenuPage() {
   const { menuItems, toggleItemAvailability } = useRestaurantData();
-  const pathname = usePathname();
 
   return (
     <main className="min-h-screen bg-[#0b0b0d] text-[#f5f2ea]">
       <div className="flex min-h-screen">
-        {/* Sidebar */}
-        <aside className="hidden w-60 shrink-0 border-r border-white/[0.07] bg-[#0d0d10] px-5 py-7 lg:flex lg:flex-col">
-          <div className="px-3">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-white/35">
-              NOVA
-            </p>
-            <p className="mt-1 text-lg font-medium">Café</p>
-            <Link href="/menu" className="text-blue-400 hover:text-blue-300">
-              Back to menu
-            </Link>
-          </div>
-
-          <nav className="mt-10 space-y-1">
-            <NavLink
-              href="/dashboard"
-              icon={<LayoutGrid size={16} />}
-              label="Overview"
-              active={pathname === "/dashboard"}
-            />
-            <NavLink
-              href="/dashboard"
-              icon={<Utensils size={16} />}
-              label="Floor"
-              active={false}
-            />
-            <NavLink
-              href="/dashboard"
-              icon={<ShoppingBag size={16} />}
-              label="Orders"
-              active={false}
-            />
-            <NavLink
-              href="/dashboard/menu"
-              icon={<Menu size={16} />}
-              label="Menu"
-              active={pathname === "/dashboard/menu"}
-            />
-          </nav>
-
-          <div className="mt-auto space-y-1">
-            <NavLink
-              href="/dashboard"
-              icon={<Settings size={16} />}
-              label="Settings"
-              active={false}
-            />
-          </div>
-        </aside>
-
         {/* Main */}
         <div className="min-w-0 flex-1">
           <header className="flex h-20 items-center justify-between border-b border-white/[0.07] px-6 md:px-10">
@@ -137,35 +78,13 @@ export default function DashboardMenuPage() {
                 );
               })}
             </div>
+
+            <Link href="/menu" className="text-blue-400 hover:text-blue-300">
+              Back to menu
+            </Link>
           </div>
         </div>
       </div>
     </main>
-  );
-}
-
-function NavLink({
-  href,
-  icon,
-  label,
-  active,
-}: {
-  href: string;
-  icon: ReactNode;
-  label: string;
-  active: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-        active
-          ? "bg-white/6 text-white"
-          : "text-white/35 hover:bg-white/4 hover:text-white/70"
-      }`}
-    >
-      {icon}
-      <span>{label}</span>
-    </Link>
   );
 }
