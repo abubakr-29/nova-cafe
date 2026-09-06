@@ -108,6 +108,18 @@ export default function TableDetail({
 
             <p className="mt-2 text-xs text-white/25">No active session.</p>
           </div>
+        ) : table.status === "reserved" ? (
+          <div className="flex h-full min-h-65 flex-col items-center justify-center text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-300/10 text-blue-200/60">
+              <Clock3 size={18} />
+            </div>
+
+            <p className="mt-4 text-sm text-white/50">Table is reserved</p>
+
+            <p className="mt-2 text-xs text-white/25">
+              Guests haven&apos;t been seated yet.
+            </p>
+          </div>
         ) : (
           <>
             <div className="flex items-end justify-between">
@@ -209,8 +221,8 @@ export default function TableDetail({
       )}
 
       {/* Actions */}
-      <div className="border-t border-white/8 p-6">
-        {table.status === "occupied" || table.status === "attention" ? (
+      {(table.status === "occupied" || table.status === "attention") && (
+        <div className="border-t border-white/8 p-6">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -240,15 +252,8 @@ export default function TableDetail({
               </button>
             )}
           </div>
-        ) : (
-          <button
-            type="button"
-            className="w-full rounded-full border border-white/10 py-3 text-xs text-white/50 transition hover:bg-white/5 hover:text-white"
-          >
-            View table
-          </button>
-        )}
-      </div>
+        </div>
+      )}
     </aside>
   );
 }

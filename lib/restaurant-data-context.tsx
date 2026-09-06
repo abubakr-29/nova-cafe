@@ -37,6 +37,57 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
 
   function addOrder(order: Order) {
     setOrders((current) => [...current, order]);
+
+    const existingSession = sessions.find(
+      (session) =>
+        session.tableId === order.tableId && session.status !== "closed",
+    );
+
+    if (existingSession) {
+      setSessions((current) =>
+        current.map((session) =>
+          session.id === existingSession.id
+            ? { ...session, orderIds: [...session.orderIds, order.id] }
+            : session,
+        ),
+      );
+
+      setTables((current) =>
+        current.map((table) =>
+          table.id === order.tableId
+            ? { ...table, status: "occupied", sessionId: existingSession.id }
+            : table,
+        ),
+      );
+
+      return;
+    }
+
+    const newSessionId = `session-${order.tableId}-${Date.now()}`;
+
+    setSessions((current) => [
+      ...current,
+      {
+        id: newSessionId,
+        restaurantId: order.restaurantId,
+        tableId: order.tableId,
+        tableName: order.tableName,
+        guests: [{ id: `guest-${order.tableId}-1`, name: "Guest 1" }],
+        orderIds: [order.id],
+        startedAt: new Date().toISOString(),
+        status: "open",
+        billRequested: false,
+        paymentStatus: "unpaid",
+      },
+    ]);
+
+    setTables((current) =>
+      current.map((table) =>
+        table.id === order.tableId
+          ? { ...table, status: "occupied", sessionId: newSessionId }
+          : table,
+      ),
+    );
   }
 
   function updateOrderStatus(orderId: string, status: OrderStatus) {

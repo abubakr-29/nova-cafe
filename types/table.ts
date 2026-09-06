@@ -1,3 +1,5 @@
+import type { OrderStatus } from "@/types/order";
+
 export type TableStatus = "available" | "occupied" | "reserved" | "attention";
 
 export type TableShape = "round" | "square" | "rectangle";
@@ -12,7 +14,7 @@ export type TablePosition = {
 export type TableOrderSummary = {
   id: string;
   orderNumber: string;
-  status: "pending" | "confirmed" | "preparing" | "ready" | "served";
+  status: OrderStatus;
   total: number;
   itemCount: number;
 };

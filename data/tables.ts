@@ -29,16 +29,6 @@ export const tables: RestaurantTable[] = [
     },
     sessionId: "session-102",
     guestCount: 2,
-    currentTotal: 638,
-    orders: [
-      {
-        id: "order-1045",
-        orderNumber: "1045",
-        status: "preparing",
-        total: 638,
-        itemCount: 3,
-      },
-    ],
   },
 
   {
@@ -83,16 +73,6 @@ export const tables: RestaurantTable[] = [
     },
     sessionId: "session-105",
     guestCount: 3,
-    currentTotal: 927,
-    orders: [
-      {
-        id: "order-1046",
-        orderNumber: "1046",
-        status: "ready",
-        total: 927,
-        itemCount: 4,
-      },
-    ],
   },
 
   {
@@ -109,23 +89,6 @@ export const tables: RestaurantTable[] = [
     },
     sessionId: "session-106",
     guestCount: 5,
-    currentTotal: 1486,
-    orders: [
-      {
-        id: "order-1047",
-        orderNumber: "1047",
-        status: "preparing",
-        total: 812,
-        itemCount: 4,
-      },
-      {
-        id: "order-1048",
-        orderNumber: "1048",
-        status: "ready",
-        total: 674,
-        itemCount: 3,
-      },
-    ],
   },
 
   {
@@ -142,23 +105,6 @@ export const tables: RestaurantTable[] = [
     },
     sessionId: "session-107",
     guestCount: 3,
-    currentTotal: 1247,
-    orders: [
-      {
-        id: "order-1049",
-        orderNumber: "1049",
-        status: "preparing",
-        total: 767,
-        itemCount: 3,
-      },
-      {
-        id: "order-1052",
-        orderNumber: "1052",
-        status: "pending",
-        total: 767,
-        itemCount: 3,
-      },
-    ],
   },
 
   {
@@ -175,15 +121,5 @@ export const tables: RestaurantTable[] = [
     },
     sessionId: "session-108",
     guestCount: 2,
-    currentTotal: 438,
-    orders: [
-      {
-        id: "order-1051",
-        orderNumber: "1051",
-        status: "served",
-        total: 438,
-        itemCount: 2,
-      },
-    ],
   },
 ];

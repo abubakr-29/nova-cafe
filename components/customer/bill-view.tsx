@@ -180,7 +180,8 @@ export default function BillView({
                   </div>
 
                   <p className="mt-4 text-center text-[10px] text-white/15">
-                    Payment processing will be connected later.
+                    This demo confirms payment instantly — live card/UPI
+                    processing plugs in at checkout.
                   </p>
                 </>
               ) : (
@@ -221,8 +222,8 @@ export default function BillView({
                   </div>
 
                   <p className="mt-4 text-center text-[10px] text-white/15">
-                    Each guest pays their share on this same screen. Real
-                    per-guest payment tracking comes later.
+                    Everyone can see their share here — one confirmation settles
+                    the table.
                   </p>
                 </>
               )}

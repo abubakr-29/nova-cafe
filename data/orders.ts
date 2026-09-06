@@ -2,6 +2,49 @@ import type { Order } from "@/types/order";
 
 export const orders: Order[] = [
   {
+    id: "order-1045",
+    orderNumber: "1045",
+    validationCode: "7734",
+    restaurantId: "nova-cafe",
+    tableId: "table-02",
+    tableName: "Table 02",
+
+    status: "served",
+
+    items: [
+      {
+        orderItemId: "order-item-1045-1",
+        menuItemId: "iced-spanish-latte",
+        name: "Iced Spanish Latte",
+        image:
+          "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?auto=format&fit=crop&w=300&q=80",
+        basePrice: 219,
+        quantity: 2,
+        addons: [],
+        unitPrice: 219,
+        totalPrice: 438,
+      },
+      {
+        orderItemId: "order-item-1045-2",
+        menuItemId: "classic-croissant",
+        name: "Classic Croissant",
+        image:
+          "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=300&q=80",
+        basePrice: 149,
+        quantity: 1,
+        addons: [],
+        unitPrice: 149,
+        totalPrice: 149,
+      },
+    ],
+
+    subtotal: 587,
+    tax: 0,
+    total: 587,
+
+    createdAt: new Date(Date.now() - 26 * 60 * 1000).toISOString(),
+  },
+  {
     id: "order-1052",
     orderNumber: "1052",
     validationCode: "4821",

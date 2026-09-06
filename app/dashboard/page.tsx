@@ -12,6 +12,32 @@ import BillSheet from "@/components/dashboard/bill-sheet";
 import { useRestaurantData } from "@/lib/restaurant-data-context";
 import OrderValidationPanel from "@/components/orders/order-validation-panel";
 
+function getGreeting() {
+  const hour = new Date().getHours();
+
+  if (hour < 12) {
+    return "Good morning.";
+  }
+
+  if (hour < 17) {
+    return "Good afternoon.";
+  }
+
+  return "Good evening.";
+}
+
+function getFormattedToday() {
+  const now = new Date();
+
+  const weekday = now.toLocaleDateString("en-IN", { weekday: "long" });
+  const dayMonth = now.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+  });
+
+  return `${weekday} · ${dayMonth}`;
+}
+
 export default function DashboardPage() {
   const {
     orders,
@@ -30,8 +56,40 @@ export default function DashboardPage() {
   const [sessionTableId, setSessionTableId] = useState<string | null>(null);
   const [billOpen, setBillOpen] = useState(false);
 
+  const tablesWithLiveData = useMemo(() => {
+    return tables.map((table) => {
+      const session = sessions.find(
+        (s) => s.tableId === table.id && s.status !== "closed",
+      );
+
+      if (!session) {
+        return table;
+      }
+
+      const sessionOrders = session.orderIds
+        .map((orderId) => orders.find((order) => order.id === orderId))
+        .filter((order): order is (typeof orders)[number] => Boolean(order));
+
+      return {
+        ...table,
+        guestCount: session.guests.length,
+        currentTotal: sessionOrders.reduce(
+          (total, order) => total + order.total,
+          0,
+        ),
+        orders: sessionOrders.map((order) => ({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          status: order.status,
+          total: order.total,
+          itemCount: order.items.reduce((n, item) => n + item.quantity, 0),
+        })),
+      };
+    });
+  }, [tables, sessions, orders]);
+
   const selectedTable =
-    tables.find((table) => table.id === selectedTableId) ?? null;
+    tablesWithLiveData.find((table) => table.id === selectedTableId) ?? null;
 
   const occupiedTables = useMemo(
     () => tables.filter((table) => table.status === "occupied").length,
@@ -151,7 +209,7 @@ export default function DashboardPage() {
           <div className="mt-3 flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
               <h1 className="text-3xl font-medium tracking-[-0.03em] md:text-4xl">
-                Good afternoon.
+                {getGreeting()}
               </h1>
 
               <p className="mt-2 text-sm text-white/30">
@@ -159,7 +217,7 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <span className="text-xs text-white/25">Saturday · 29 August</span>
+            <span className="text-xs text-white/25">{getFormattedToday()}</span>
           </div>
         </div>
 
@@ -212,7 +270,7 @@ export default function DashboardPage() {
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_380px]">
             <TableMap
-              tables={tables}
+              tables={tablesWithLiveData}
               selectedTableId={selectedTableId}
               onSelectTable={handleSelectTable}
               billRequestedTableIds={billRequestedTableIds}

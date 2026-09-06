@@ -50,7 +50,10 @@ export default function MenuPage() {
   } = useRestaurantData();
 
   const currentSession =
-    sessions.find((session) => session.tableId === "table-07") ?? null;
+    sessions.find(
+      (session) =>
+        session.tableId === "table-07" && session.status !== "closed",
+    ) ?? null;
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
