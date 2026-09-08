@@ -1,7 +1,7 @@
 "use client";
 
-import { Bell, Check, Clock3, Hash } from "lucide-react";
-import { useEffect } from "react";
+import { Bell, Check, Clock3, Hash, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import type { Order } from "@/types/order";
 
@@ -9,6 +9,7 @@ type OrderConfirmationProps = {
   order: Order;
   billRequested: boolean;
   onRequestBill: () => void;
+  onCancel: () => void;
   onDone: () => void;
 };
 
@@ -16,8 +17,12 @@ export default function OrderConfirmation({
   order,
   billRequested,
   onRequestBill,
+  onCancel,
   onDone,
 }: OrderConfirmationProps) {
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const canCancel = order.status === "awaiting_validation";
+
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
 
@@ -150,6 +155,40 @@ export default function OrderConfirmation({
             it&apos;s sent to the kitchen.
           </p>
         </div>
+
+        {/* Cancel order */}
+        {canCancel && (
+          <div className="mt-6">
+            {confirmingCancel ? (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingCancel(false)}
+                  className="h-13 rounded-full border border-white/10 text-xs font-medium text-white/60 transition hover:border-white/20 hover:bg-white/5"
+                >
+                  Keep order
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="h-13 rounded-full border border-red-400/30 bg-red-400/10 text-xs font-medium text-red-300 transition hover:bg-red-400/15"
+                >
+                  Yes, cancel it
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingCancel(true)}
+                className="flex h-11 w-full items-center justify-center gap-1.5 text-xs text-white/30 transition hover:text-red-300"
+              >
+                <X size={13} />
+                Cancel this order
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Request bill */}
         <button

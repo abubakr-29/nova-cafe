@@ -1,12 +1,14 @@
 "use client";
 
-import { ArrowRight, Clock3, Users } from "lucide-react";
+import { ArrowRight, Clock3, Users, X } from "lucide-react";
+import { useState } from "react";
 
 import type { Order } from "@/types/order";
 
 type OrderCardProps = {
   order: Order;
   onAction: (orderId: string) => void;
+  onCancel: (orderId: string) => void;
 };
 
 const actionLabels = {
@@ -16,8 +18,21 @@ const actionLabels = {
   ready: "Mark served",
 };
 
-export default function OrderCard({ order, onAction }: OrderCardProps) {
+const cancellableStatuses = new Set([
+  "pending",
+  "confirmed",
+  "preparing",
+  "ready",
+]);
+
+export default function OrderCard({
+  order,
+  onAction,
+  onCancel,
+}: OrderCardProps) {
   const actionLabel = actionLabels[order.status as keyof typeof actionLabels];
+  const canCancel = cancellableStatuses.has(order.status);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   return (
     <article className="rounded-[22px] border border-white/8 bg-[#151519] p-4 transition hover:border-white/[0.14]">
@@ -98,6 +113,36 @@ export default function OrderCard({ order, onAction }: OrderCardProps) {
           <ArrowRight size={14} />
         </button>
       )}
+
+      {canCancel &&
+        (confirmingCancel ? (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmingCancel(false)}
+              className="rounded-full border border-white/10 py-2 text-[11px] text-white/55 transition hover:bg-white/5"
+            >
+              Keep order
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onCancel(order.id)}
+              className="rounded-full border border-red-400/30 bg-red-400/10 py-2 text-[11px] text-red-300 transition hover:bg-red-400/15"
+            >
+              Cancel order
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmingCancel(true)}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 py-2 text-[10px] text-white/25 transition hover:text-red-300"
+          >
+            <X size={11} />
+            Cancel order
+          </button>
+        ))}
     </article>
   );
 }

@@ -6,6 +6,7 @@ import OrderCard from "@/components/orders/order-card";
 type OrderQueueProps = {
   orders: Order[];
   onStatusChange: (orderId: string, status: OrderStatus) => void;
+  onCancel: (orderId: string) => void;
 };
 
 const columns: {
@@ -38,6 +39,7 @@ const columns: {
 export default function OrderQueue({
   orders,
   onStatusChange,
+  onCancel,
 }: OrderQueueProps) {
   function handleAction(order: Order) {
     const nextStatus = getNextStatus(order.status);
@@ -83,6 +85,7 @@ export default function OrderQueue({
                     key={order.id}
                     order={order}
                     onAction={() => handleAction(order)}
+                    onCancel={onCancel}
                   />
                 ))
               ) : (

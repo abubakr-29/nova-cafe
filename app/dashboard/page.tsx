@@ -44,10 +44,12 @@ export default function DashboardPage() {
     sessions,
     tables,
     updateOrderStatus,
+    cancelOrder,
     requestBill,
     markSessionPaid,
     validateOrder,
     closeTableSession,
+    updateSessionGuestCount,
   } = useRestaurantData();
 
   const [selectedTableId, setSelectedTableId] = useState<string | null>(
@@ -68,7 +70,8 @@ export default function DashboardPage() {
 
       const sessionOrders = session.orderIds
         .map((orderId) => orders.find((order) => order.id === orderId))
-        .filter((order): order is (typeof orders)[number] => Boolean(order));
+        .filter((order): order is (typeof orders)[number] => Boolean(order))
+        .filter((order) => order.status !== "cancelled");
 
       return {
         ...table,
@@ -99,7 +102,10 @@ export default function DashboardPage() {
   const activeOrders = useMemo(
     () =>
       orders.filter(
-        (order) => order.status !== "served" && order.status !== "completed",
+        (order) =>
+          order.status !== "served" &&
+          order.status !== "completed" &&
+          order.status !== "cancelled",
       ).length,
     [orders],
   );
@@ -120,7 +126,11 @@ export default function DashboardPage() {
         session.orderIds.reduce((sessionTotal, orderId) => {
           const order = orders.find((order) => order.id === orderId);
 
-          return sessionTotal + (order?.total ?? 0);
+          if (!order || order.status === "cancelled") {
+            return sessionTotal;
+          }
+
+          return sessionTotal + order.total;
         }, 0)
       );
     }, 0);
@@ -306,16 +316,26 @@ export default function DashboardPage() {
               {
                 orders.filter(
                   (order) =>
-                    order.status !== "served" && order.status !== "completed",
+                    order.status !== "served" &&
+                    order.status !== "completed" &&
+                    order.status !== "cancelled",
                 ).length
               }{" "}
               active
             </span>
           </div>
 
-          <OrderValidationPanel orders={orders} onValidate={validateOrder} />
+          <OrderValidationPanel
+            orders={orders}
+            onValidate={validateOrder}
+            onCancel={cancelOrder}
+          />
 
-          <OrderQueue orders={orders} onStatusChange={updateOrderStatus} />
+          <OrderQueue
+            orders={orders}
+            onStatusChange={updateOrderStatus}
+            onCancel={cancelOrder}
+          />
 
           <TableSessionDrawer
             session={activeSession}
@@ -324,6 +344,7 @@ export default function DashboardPage() {
             onOpenBill={() => {
               setBillOpen(true);
             }}
+            onUpdateGuestCount={updateSessionGuestCount}
           />
 
           {billOpen && (

@@ -1,11 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Check, Receipt, Users, X } from "lucide-react";
 
 import type { Order } from "@/types/order";
 import type { TableSession } from "@/types/session";
 
-import { calculateBill } from "@/lib/bill";
+import { calculateBill, calculateGuestShares } from "@/lib/bill";
 
 type BillSheetProps = {
   session: TableSession | null;
@@ -20,6 +21,8 @@ export default function BillSheet({
   onClose,
   onMarkPaid,
 }: BillSheetProps) {
+  const [splitMode, setSplitMode] = useState<"equal" | "itemized">("equal");
+
   if (!session) {
     return null;
   }
@@ -33,6 +36,12 @@ export default function BillSheet({
   const guestCount = Math.max(session.guests.length, 1);
 
   const equalShare = Math.ceil(bill.total / guestCount);
+
+  const guestShares = calculateGuestShares(sessionOrders, session.guests);
+
+  const hasAssignedItems = sessionOrders.some((order) =>
+    order.items.some((item) => item.assignedGuestId),
+  );
 
   const isPaid = session.paymentStatus === "paid";
 
@@ -113,15 +122,20 @@ export default function BillSheet({
               {sessionOrders.map((order, orderIndex) => (
                 <div
                   key={order.id}
-                  className={
+                  className={`${
                     orderIndex === 0
                       ? "p-5"
                       : "border-t border-white/[0.07] p-5"
-                  }
+                  } ${order.status === "cancelled" ? "opacity-40" : ""}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-white/25">
                       Order #{order.orderNumber}
+                      {order.status === "cancelled" && (
+                        <span className="ml-2 text-red-300/70">
+                          Cancelled — not billed
+                        </span>
+                      )}
                     </span>
 
                     <span className="text-xs text-white/40">
@@ -215,6 +229,55 @@ export default function BillSheet({
                 </p>
               </div>
             </div>
+
+            {hasAssignedItems && (
+              <>
+                <div className="mt-4 flex rounded-full border border-white/10 bg-white/2.5 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setSplitMode("equal")}
+                    className={`flex-1 rounded-full py-2 text-[11px] font-medium transition ${
+                      splitMode === "equal"
+                        ? "bg-[#f5f2ea] text-[#0b0b0d]"
+                        : "text-white/45"
+                    }`}
+                  >
+                    Equal
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSplitMode("itemized")}
+                    className={`flex-1 rounded-full py-2 text-[11px] font-medium transition ${
+                      splitMode === "itemized"
+                        ? "bg-[#f5f2ea] text-[#0b0b0d]"
+                        : "text-white/45"
+                    }`}
+                  >
+                    By what each ordered
+                  </button>
+                </div>
+
+                {splitMode === "itemized" && (
+                  <div className="mt-3 space-y-2">
+                    {guestShares.map((share) => (
+                      <div
+                        key={share.guestId}
+                        className="flex items-center justify-between rounded-xl border border-white/8 bg-white/2.5 px-4 py-2.5"
+                      >
+                        <span className="text-xs text-white/55">
+                          {share.guestName}
+                        </span>
+
+                        <span className="text-xs font-medium text-white/80">
+                          ₹{share.total.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </section>
         </div>
 

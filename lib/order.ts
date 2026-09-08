@@ -44,6 +44,8 @@ export function createOrder({
 
       unitPrice,
       totalPrice: unitPrice * item.quantity,
+
+      assignedGuestId: item.guestId,
     };
   });
 

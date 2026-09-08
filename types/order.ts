@@ -26,6 +26,8 @@ export type OrderItem = {
 
   unitPrice: number;
   totalPrice: number;
+
+  assignedGuestId?: string;
 };
 
 export type Order = {

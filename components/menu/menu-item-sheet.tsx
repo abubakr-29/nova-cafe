@@ -6,15 +6,19 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { MenuItem, MenuOption } from "@/types/menu";
 import type { CartItem } from "@/types/cart";
+import type { TableGuest } from "@/types/session";
+import { MAX_ITEM_QUANTITY } from "@/lib/cart";
 
 type MenuItemSheetProps = {
   item: MenuItem | null;
+  guests: TableGuest[];
   onClose: () => void;
   onAdd: (item: CartItem) => void;
 };
 
 export default function MenuItemSheet({
   item,
+  guests,
   onClose,
   onAdd,
 }: MenuItemSheetProps) {
@@ -25,6 +29,9 @@ export default function MenuItemSheet({
   const [selectedAddons, setSelectedAddons] = useState<MenuOption[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState("");
+  const [selectedGuestId, setSelectedGuestId] = useState<string | undefined>(
+    guests[0]?.id,
+  );
 
   useEffect(() => {
     if (!item) return;
@@ -80,6 +87,7 @@ export default function MenuItemSheet({
       addons: selectedAddons,
       note: note.trim() || undefined,
       image: currentItem.image,
+      guestId: selectedGuestId,
     });
 
     onClose();
@@ -225,6 +233,33 @@ export default function MenuItemSheet({
             </div>
           )}
 
+          {/* Guest */}
+          {guests.length > 1 && (
+            <div className="mt-8">
+              <h3 className="mb-3 text-sm font-medium">Who&apos;s this for?</h3>
+
+              <div className="flex flex-wrap gap-2">
+                {guests.map((guest) => {
+                  const selected = selectedGuestId === guest.id;
+
+                  return (
+                    <button
+                      key={guest.id}
+                      onClick={() => setSelectedGuestId(guest.id)}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        selected
+                          ? "border-[#d7a45a]/60 bg-[#d7a45a]/10 text-[#d7a45a]"
+                          : "border-white/10 bg-white/2.5 text-white/60 hover:border-white/20"
+                      }`}
+                    >
+                      {guest.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Note */}
           <div className="mt-8">
             <h3 className="mb-3 text-sm font-medium">Special instructions</h3>
@@ -258,8 +293,13 @@ export default function MenuItemSheet({
               <span className="text-sm font-medium">{quantity}</span>
 
               <button
-                onClick={() => setQuantity((current) => current + 1)}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-white/60 transition hover:bg-white/5 hover:text-white"
+                onClick={() =>
+                  setQuantity((current) =>
+                    Math.min(MAX_ITEM_QUANTITY, current + 1),
+                  )
+                }
+                disabled={quantity >= MAX_ITEM_QUANTITY}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-white/60 transition hover:bg-white/5 hover:text-white disabled:cursor-default disabled:text-white/15 disabled:hover:bg-transparent"
               >
                 <Plus size={16} />
               </button>

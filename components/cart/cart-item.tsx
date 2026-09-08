@@ -3,16 +3,22 @@
 import { Minus, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import type { CartItem as CartItemType } from "@/types/cart";
-import { getCartItemDetails, getCartItemUnitPrice } from "@/lib/cart";
+import {
+  getCartItemDetails,
+  getCartItemUnitPrice,
+  MAX_ITEM_QUANTITY,
+} from "@/lib/cart";
 
 type CartItemProps = {
   item: CartItemType;
+  guestName?: string;
   onQuantityChange: (cartItemId: string, quantity: number) => void;
   onRemove: (cartItemId: string) => void;
 };
 
 export default function CartItem({
   item,
+  guestName,
   onQuantityChange,
   onRemove,
 }: CartItemProps) {
@@ -47,6 +53,12 @@ export default function CartItem({
                   {details}
                 </p>
               )}
+
+              {guestName && (
+                <span className="mt-1.5 inline-block rounded-full bg-[#d7a45a]/10 px-2.5 py-0.5 text-[10px] text-[#d7a45a]">
+                  For {guestName}
+                </span>
+              )}
             </div>
 
             <p className="shrink-0 text-sm font-medium text-white/80">
@@ -75,9 +87,13 @@ export default function CartItem({
               <button
                 type="button"
                 onClick={() =>
-                  onQuantityChange(item.cartItemId, item.quantity + 1)
+                  onQuantityChange(
+                    item.cartItemId,
+                    Math.min(MAX_ITEM_QUANTITY, item.quantity + 1),
+                  )
                 }
-                className="flex h-9 w-9 items-center justify-center rounded-full text-white/45 transition hover:bg-white/5 hover:text-white"
+                disabled={item.quantity >= MAX_ITEM_QUANTITY}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white/45 transition hover:bg-white/5 hover:text-white disabled:cursor-default disabled:text-white/15 disabled:hover:bg-transparent"
                 aria-label={`Increase ${item.name} quantity`}
               >
                 <Plus size={14} />

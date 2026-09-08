@@ -15,11 +15,14 @@ import {
   areCartItemsEquivalent,
   getCartItemDetails,
   getCartItemUnitPrice,
+  MAX_ITEM_QUANTITY,
   removeCartItem,
   updateCartItemQuantity,
 } from "@/lib/cart";
 import { useRestaurantData } from "@/lib/restaurant-data-context";
 import BillView from "@/components/customer/bill-view";
+import GuestGate from "@/components/customer/guest-gate";
+import type { TableGuest } from "@/types/session";
 import Link from "next/link";
 
 const categories = [
@@ -39,12 +42,16 @@ export default function MenuPage() {
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [billViewOpen, setBillViewOpen] = useState(false);
+  const [pendingGuestCount, setPendingGuestCount] = useState<number | null>(
+    null,
+  );
 
   const {
     orders,
     sessions,
     menuItems,
     addOrder,
+    cancelOrder,
     requestBill,
     markSessionPaid,
   } = useRestaurantData();
@@ -54,6 +61,22 @@ export default function MenuPage() {
       (session) =>
         session.tableId === "table-07" && session.status !== "closed",
     ) ?? null;
+
+  const needsGuestGate = !currentSession && pendingGuestCount === null;
+
+  const displayGuests: TableGuest[] = currentSession
+    ? currentSession.guests
+    : Array.from({ length: pendingGuestCount ?? 1 }, (_, index) => ({
+        id: `guest-table-07-${index + 1}`,
+        name: `Guest ${index + 1}`,
+      }));
+
+  // The live order is looked up fresh from `orders` (not the `currentOrder`
+  // snapshot taken at placement time) so its status — and therefore whether
+  // it can still be cancelled — always reflects what staff have actually done.
+  const liveCurrentOrder = currentOrder
+    ? (orders.find((order) => order.id === currentOrder.id) ?? currentOrder)
+    : null;
 
   const filteredItems = useMemo(() => {
     return menuItems.filter((item) => {
@@ -85,7 +108,10 @@ export default function MenuPage() {
 
         return {
           ...cartItem,
-          quantity: cartItem.quantity + item.quantity,
+          quantity: Math.min(
+            MAX_ITEM_QUANTITY,
+            cartItem.quantity + item.quantity,
+          ),
         };
       });
     });
@@ -119,8 +145,9 @@ export default function MenuPage() {
       tableName: "Table 07",
     });
 
-    addOrder(order);
+    addOrder(order, currentSession ? undefined : (pendingGuestCount ?? 1));
     setCurrentOrder(order);
+    setPendingGuestCount(null);
 
     setCart([]);
     setCartDrawerOpen(false);
@@ -132,6 +159,19 @@ export default function MenuPage() {
     }
 
     requestBill(currentSession.id);
+  }
+
+  function handleCancelCurrentOrder() {
+    if (!liveCurrentOrder) {
+      return;
+    }
+
+    cancelOrder(liveCurrentOrder.id);
+    setCurrentOrder(null);
+  }
+
+  if (needsGuestGate) {
+    return <GuestGate tableName="Table 07" onConfirm={setPendingGuestCount} />;
   }
 
   return (
@@ -326,12 +366,14 @@ export default function MenuPage() {
       <MenuItemSheet
         key={selectedItem?.id ?? "closed"}
         item={selectedItem}
+        guests={displayGuests}
         onClose={() => setSelectedItem(null)}
         onAdd={addToCart}
       />
 
       <CartDrawer
         items={cart}
+        guests={displayGuests}
         open={cartDrawerOpen}
         onClose={() => setCartDrawerOpen(false)}
         onQuantityChange={changeCartItemQuantity}
@@ -339,11 +381,12 @@ export default function MenuPage() {
         onPlaceOrder={handlePlaceOrder}
       />
 
-      {currentOrder && (
+      {liveCurrentOrder && (
         <OrderConfirmation
-          order={currentOrder}
+          order={liveCurrentOrder}
           billRequested={currentSession?.billRequested ?? false}
           onRequestBill={handleRequestBill}
+          onCancel={handleCancelCurrentOrder}
           onDone={() => setCurrentOrder(null)}
         />
       )}

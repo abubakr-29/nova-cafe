@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Receipt, Users, X } from "lucide-react";
+import { ArrowRight, Minus, Plus, Receipt, Users, X } from "lucide-react";
 
 import type { Order } from "@/types/order";
 import type { TableSession } from "@/types/session";
@@ -10,6 +10,7 @@ type TableSessionProps = {
   orders: Order[];
   onClose: () => void;
   onOpenBill: () => void;
+  onUpdateGuestCount: (sessionId: string, guestCount: number) => void;
 };
 
 export default function TableSessionDrawer({
@@ -17,6 +18,7 @@ export default function TableSessionDrawer({
   orders,
   onClose,
   onOpenBill,
+  onUpdateGuestCount,
 }: TableSessionProps) {
   if (!session) {
     return null;
@@ -26,12 +28,16 @@ export default function TableSessionDrawer({
     .map((orderId) => orders.find((order) => order.id === orderId))
     .filter((order): order is Order => Boolean(order));
 
-  const subtotal = sessionOrders.reduce(
+  const billableOrders = sessionOrders.filter(
+    (order) => order.status !== "cancelled",
+  );
+
+  const subtotal = billableOrders.reduce(
     (total, order) => total + order.total,
     0,
   );
 
-  const itemCount = sessionOrders.reduce(
+  const itemCount = billableOrders.reduce(
     (total, order) =>
       total + order.items.reduce((items, item) => items + item.quantity, 0),
     0,
@@ -79,13 +85,38 @@ export default function TableSessionDrawer({
 
         {/* Summary */}
         <div className="border-b border-white/8 px-6 py-5">
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center gap-6">
             <div className="flex items-center gap-2">
               <Users size={14} className="text-white/25" />
 
               <span className="text-xs text-white/45">
                 {session.guests.length} guests
               </span>
+
+              <div className="ml-1 flex items-center rounded-full border border-white/10">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateGuestCount(session.id, session.guests.length - 1)
+                  }
+                  disabled={session.guests.length <= 1}
+                  aria-label="Decrease guest count"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-white/45 transition hover:bg-white/5 hover:text-white disabled:cursor-default disabled:text-white/15 disabled:hover:bg-transparent"
+                >
+                  <Minus size={11} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateGuestCount(session.id, session.guests.length + 1)
+                  }
+                  aria-label="Increase guest count"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-white/45 transition hover:bg-white/5 hover:text-white"
+                >
+                  <Plus size={11} />
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -118,7 +149,9 @@ export default function TableSessionDrawer({
             {sessionOrders.map((order) => (
               <div
                 key={order.id}
-                className="rounded-[22px] border border-white/8 bg-white/2.5 p-5"
+                className={`rounded-[22px] border border-white/8 bg-white/2.5 p-5 ${
+                  order.status === "cancelled" ? "opacity-45" : ""
+                }`}
               >
                 {/* Order heading */}
                 <div className="flex items-start justify-between">
@@ -127,8 +160,16 @@ export default function TableSessionDrawer({
                       #{order.orderNumber}
                     </p>
 
-                    <p className="mt-1 text-[10px] capitalize text-[#d7a45a]/70">
-                      {order.status}
+                    <p
+                      className={`mt-1 text-[10px] capitalize ${
+                        order.status === "cancelled"
+                          ? "text-red-300/70"
+                          : "text-[#d7a45a]/70"
+                      }`}
+                    >
+                      {order.status === "cancelled"
+                        ? "Cancelled — not billed"
+                        : order.status}
                     </p>
                   </div>
 

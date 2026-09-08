@@ -8,11 +8,13 @@ import type { Order } from "@/types/order";
 type OrderValidationPanelProps = {
   orders: Order[];
   onValidate: (orderId: string, code: string) => boolean;
+  onCancel: (orderId: string) => void;
 };
 
 export default function OrderValidationPanel({
   orders,
   onValidate,
+  onCancel,
 }: OrderValidationPanelProps) {
   const pendingOrders = orders.filter(
     (order) => order.status === "awaiting_validation",
@@ -39,6 +41,7 @@ export default function OrderValidationPanel({
             key={order.id}
             order={order}
             onValidate={onValidate}
+            onCancel={onCancel}
           />
         ))}
       </div>
@@ -49,12 +52,15 @@ export default function OrderValidationPanel({
 function ValidationCard({
   order,
   onValidate,
+  onCancel,
 }: {
   order: Order;
   onValidate: (orderId: string, code: string) => boolean;
+  onCancel: (orderId: string) => void;
 }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   function handleSubmit() {
     const success = onValidate(order.id, code);
@@ -112,6 +118,34 @@ function ValidationCard({
         <p className="mt-2 text-center text-[10px] text-red-300/70">
           Incorrect code — try again
         </p>
+      )}
+
+      {confirmingCancel ? (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmingCancel(false)}
+            className="rounded-full border border-white/10 py-2 text-[11px] text-white/55 transition hover:bg-white/5"
+          >
+            Keep order
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onCancel(order.id)}
+            className="rounded-full border border-red-400/30 bg-red-400/10 py-2 text-[11px] text-red-300 transition hover:bg-red-400/15"
+          >
+            Cancel order
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirmingCancel(true)}
+          className="mt-3 w-full text-center text-[10px] text-white/25 transition hover:text-red-300"
+        >
+          Cancel this order
+        </button>
       )}
     </div>
   );

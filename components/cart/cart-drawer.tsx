@@ -4,11 +4,13 @@ import { ArrowLeft, ShoppingBag, X } from "lucide-react";
 import { useEffect } from "react";
 
 import type { CartItem as CartItemType } from "@/types/cart";
+import type { TableGuest } from "@/types/session";
 import CartItem from "@/components/cart/cart-item";
 import { getCartItemUnitPrice } from "@/lib/cart";
 
 type CartDrawerProps = {
   items: CartItemType[];
+  guests: TableGuest[];
   open: boolean;
   onClose: () => void;
   onQuantityChange: (cartItemId: string, quantity: number) => void;
@@ -18,6 +20,7 @@ type CartDrawerProps = {
 
 export default function CartDrawer({
   items,
+  guests,
   open,
   onClose,
   onQuantityChange,
@@ -119,6 +122,11 @@ export default function CartDrawer({
                 <CartItem
                   key={item.cartItemId}
                   item={item}
+                  guestName={
+                    guests.length > 1
+                      ? guests.find((guest) => guest.id === item.guestId)?.name
+                      : undefined
+                  }
                   onQuantityChange={onQuantityChange}
                   onRemove={onRemove}
                 />

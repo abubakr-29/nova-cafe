@@ -1,5 +1,7 @@
 import type { CartItem } from "@/types/cart";
 
+export const MAX_ITEM_QUANTITY = 20;
+
 export function areCartItemsEquivalent(a: CartItem, b: CartItem) {
   if (a.menuItemId !== b.menuItemId) {
     return false;
@@ -10,6 +12,10 @@ export function areCartItemsEquivalent(a: CartItem, b: CartItem) {
   }
 
   if (a.note !== b.note) {
+    return false;
+  }
+
+  if (a.guestId !== b.guestId) {
     return false;
   }
 
@@ -59,8 +65,12 @@ export function updateCartItemQuantity(
     return cart.filter((item) => item.cartItemId !== cartItemId);
   }
 
+  const clampedQuantity = Math.min(quantity, MAX_ITEM_QUANTITY);
+
   return cart.map((item) =>
-    item.cartItemId === cartItemId ? { ...item, quantity } : item,
+    item.cartItemId === cartItemId
+      ? { ...item, quantity: clampedQuantity }
+      : item,
   );
 }
 

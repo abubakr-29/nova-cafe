@@ -5,7 +5,7 @@ import { Check, Users, X } from "lucide-react";
 
 import type { Order } from "@/types/order";
 import type { TableSession } from "@/types/session";
-import { calculateBill } from "@/lib/bill";
+import { calculateBill, calculateGuestShares } from "@/lib/bill";
 
 type BillViewProps = {
   session: TableSession;
@@ -21,6 +21,7 @@ export default function BillView({
   onPay,
 }: BillViewProps) {
   const [view, setView] = useState<"overview" | "split">("overview");
+  const [splitMode, setSplitMode] = useState<"equal" | "itemized">("equal");
 
   const sessionOrders = session.orderIds
     .map((orderId) => orders.find((order) => order.id === orderId))
@@ -29,6 +30,10 @@ export default function BillView({
   const bill = calculateBill(sessionOrders);
   const guestCount = Math.max(session.guests.length, 1);
   const equalShare = Math.ceil(bill.total / guestCount);
+  const guestShares = calculateGuestShares(sessionOrders, session.guests);
+  const hasAssignedItems = sessionOrders.some((order) =>
+    order.items.some((item) => item.assignedGuestId),
+  );
   const isPaid = session.paymentStatus === "paid";
 
   return (
@@ -92,15 +97,20 @@ export default function BillView({
                     {sessionOrders.map((order, orderIndex) => (
                       <div
                         key={order.id}
-                        className={
+                        className={`${
                           orderIndex === 0
                             ? "p-5"
                             : "border-t border-white/[0.07] p-5"
-                        }
+                        } ${order.status === "cancelled" ? "opacity-40" : ""}`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] text-white/25">
                             Order #{order.orderNumber}
+                            {order.status === "cancelled" && (
+                              <span className="ml-2 text-red-300/70">
+                                Cancelled — not billed
+                              </span>
+                            )}
                           </span>
 
                           <span className="text-xs text-white/40">
@@ -187,21 +197,73 @@ export default function BillView({
               ) : (
                 <>
                   {/* Split view */}
-                  <div className="rounded-3xl border border-[#d7a45a]/20 bg-[#d7a45a]/4 p-6 text-center">
-                    <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#d7a45a]/10">
-                      <Users size={18} className="text-[#d7a45a]" />
+                  {hasAssignedItems && (
+                    <div className="mb-5 flex rounded-full border border-white/10 bg-white/2.5 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setSplitMode("equal")}
+                        className={`flex-1 rounded-full py-2.5 text-xs font-medium transition ${
+                          splitMode === "equal"
+                            ? "bg-[#f5f2ea] text-[#0b0b0d]"
+                            : "text-white/45"
+                        }`}
+                      >
+                        Equal split
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSplitMode("itemized")}
+                        className={`flex-1 rounded-full py-2.5 text-xs font-medium transition ${
+                          splitMode === "itemized"
+                            ? "bg-[#f5f2ea] text-[#0b0b0d]"
+                            : "text-white/45"
+                        }`}
+                      >
+                        By what each ordered
+                      </button>
                     </div>
+                  )}
 
-                    <p className="mt-4 text-sm text-white/60">
-                      Split equally between {guestCount} guests
-                    </p>
+                  {splitMode === "equal" || !hasAssignedItems ? (
+                    <div className="rounded-3xl border border-[#d7a45a]/20 bg-[#d7a45a]/4 p-6 text-center">
+                      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#d7a45a]/10">
+                        <Users size={18} className="text-[#d7a45a]" />
+                      </div>
 
-                    <p className="mt-2 text-3xl font-medium text-white">
-                      ₹{equalShare.toLocaleString("en-IN")}
-                    </p>
+                      <p className="mt-4 text-sm text-white/60">
+                        Split equally between {guestCount} guests
+                      </p>
 
-                    <p className="mt-1 text-xs text-white/25">per person</p>
-                  </div>
+                      <p className="mt-2 text-3xl font-medium text-white">
+                        ₹{equalShare.toLocaleString("en-IN")}
+                      </p>
+
+                      <p className="mt-1 text-xs text-white/25">per person</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {guestShares.map((share) => (
+                        <div
+                          key={share.guestId}
+                          className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/2.5 px-5 py-4"
+                        >
+                          <span className="text-sm text-white/65">
+                            {share.guestName}
+                          </span>
+
+                          <span className="text-sm font-medium text-white">
+                            ₹{share.total.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      ))}
+
+                      <p className="pt-1 text-center text-[10px] text-white/20">
+                        Includes tax. Shared or unassigned items are split
+                        evenly.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="mt-6 grid gap-3">
                     <button
