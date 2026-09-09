@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { UserPlus, X } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Check, ChevronDown, UserPlus, X } from "lucide-react";
 
 type StaffMember = {
   id: string;
@@ -17,11 +17,36 @@ export default function StaffPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"staff" | "manager">("staff");
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(
     null,
   );
+  const roleMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (
+        roleMenuRef.current &&
+        !roleMenuRef.current.contains(event.target as Node)
+      ) {
+        setRoleMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setRoleMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   async function loadStaff() {
     const response = await fetch("/api/staff");
@@ -118,7 +143,7 @@ export default function StaffPage() {
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             placeholder="Full name"
-            className="rounded-xl border border-white/10 bg-white/2.5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-white/20"
+            className="rounded-xl border border-white/10 bg-white/2.5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#d7a45a]/70"
           />
 
           <input
@@ -127,7 +152,7 @@ export default function StaffPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="Email"
-            className="rounded-xl border border-white/10 bg-white/2.5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-white/20"
+            className="rounded-xl border border-white/10 bg-white/2.5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#d7a45a]/70"
           />
 
           <input
@@ -137,19 +162,53 @@ export default function StaffPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Temporary password"
-            className="rounded-xl border border-white/10 bg-white/2.5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-white/20"
+            className="rounded-xl border border-white/10 bg-white/2.5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#d7a45a]/70"
           />
 
-          <select
-            value={role}
-            onChange={(event) =>
-              setRole(event.target.value as "staff" | "manager")
-            }
-            className="rounded-xl border border-white/10 bg-white/2.5 px-4 py-3 text-sm text-white outline-none focus:border-white/20"
-          >
-            <option value="staff">Staff</option>
-            <option value="manager">Manager</option>
-          </select>
+          <div ref={roleMenuRef} className="relative">
+            <button
+              type="button"
+              aria-expanded={roleMenuOpen}
+              aria-haspopup="listbox"
+              onClick={() => setRoleMenuOpen((isOpen) => !isOpen)}
+              className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/2.5 px-4 py-3 text-left text-sm text-white outline-none transition hover:border-white/20 focus:border-[#d7a45a]/70"
+            >
+              <span>{role === "staff" ? "Staff" : "Manager"}</span>
+              <ChevronDown
+                size={16}
+                className={`text-white/45 transition-transform ${
+                  roleMenuOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {roleMenuOpen && (
+              <div
+                role="listbox"
+                aria-label="Staff role"
+                className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-10 overflow-hidden rounded-xl border border-white/10 bg-[#171719] p-1 shadow-2xl shadow-black/40"
+              >
+                {(["staff", "manager"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    role="option"
+                    aria-selected={role === option}
+                    onClick={() => {
+                      setRole(option);
+                      setRoleMenuOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm text-white/70 transition hover:bg-white/8 hover:text-white"
+                  >
+                    <span>{option === "staff" ? "Staff" : "Manager"}</span>
+                    {role === option && (
+                      <Check size={15} className="text-[#d7a45a]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {error && <p className="mt-3 text-xs text-red-300/80">{error}</p>}
