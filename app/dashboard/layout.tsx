@@ -8,6 +8,7 @@ import {
   Menu as MenuIcon,
   Settings,
   ShoppingBag,
+  UserPlus,
   Utensils,
   X,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/dashboard", icon: Utensils, label: "Floor" },
   { href: "/dashboard", icon: ShoppingBag, label: "Orders" },
   { href: "/dashboard/menu", icon: MenuIcon, label: "Menu" },
+  { href: "/dashboard/staff", icon: UserPlus, label: "Staff" },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
