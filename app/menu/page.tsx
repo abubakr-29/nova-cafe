@@ -8,8 +8,6 @@ import CartDrawer from "@/components/cart/cart-drawer";
 import type { MenuItem } from "@/types/menu";
 import MenuItemSheet from "@/components/menu/menu-item-sheet";
 import type { CartItem } from "@/types/cart";
-import type { Order } from "@/types/order";
-import { createOrder } from "@/lib/order";
 import OrderConfirmation from "@/components/orders/order-confirmation";
 import {
   areCartItemsEquivalent,
@@ -34,48 +32,55 @@ const categories = [
   "Desserts",
 ];
 
+// Which physical table this page represents — hardcoded until Phase 5
+// resolves it from the QR code's URL instead.
+const CURRENT_TABLE_NAME = "Table 07";
+
 export default function MenuPage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [billViewOpen, setBillViewOpen] = useState(false);
   const [pendingGuestCount, setPendingGuestCount] = useState<number | null>(
     null,
   );
 
   const {
+    loading,
     orders,
     sessions,
     menuItems,
-    addOrder,
-    cancelOrder,
-    requestBill,
-    markSessionPaid,
+    tables,
+    placeOrder,
+    cancelOrderAsCustomer,
+    requestBillAsCustomer,
+    confirmPaymentAsCustomer,
   } = useRestaurantData();
 
-  const currentSession =
-    sessions.find(
-      (session) =>
-        session.tableId === "table-07" && session.status !== "closed",
-    ) ?? null;
+  const currentTable =
+    tables.find((table) => table.name === CURRENT_TABLE_NAME) ?? null;
+
+  const currentSession = currentTable
+    ? (sessions.find(
+        (session) =>
+          session.tableId === currentTable.id && session.status !== "closed",
+      ) ?? null)
+    : null;
 
   const needsGuestGate = !currentSession && pendingGuestCount === null;
 
   const displayGuests: TableGuest[] = currentSession
     ? currentSession.guests
     : Array.from({ length: pendingGuestCount ?? 1 }, (_, index) => ({
-        id: `guest-table-07-${index + 1}`,
+        id: `pending-guest-${index + 1}`,
         name: `Guest ${index + 1}`,
       }));
 
-  // The live order is looked up fresh from `orders` (not the `currentOrder`
-  // snapshot taken at placement time) so its status — and therefore whether
-  // it can still be cancelled — always reflects what staff have actually done.
-  const liveCurrentOrder = currentOrder
-    ? (orders.find((order) => order.id === currentOrder.id) ?? currentOrder)
+  const liveCurrentOrder = currentOrderId
+    ? (orders.find((order) => order.id === currentOrderId) ?? null)
     : null;
 
   const filteredItems = useMemo(() => {
@@ -132,21 +137,24 @@ export default function MenuPage() {
     0,
   );
 
-  function handlePlaceOrder() {
-    if (cart.length === 0) {
+  async function handlePlaceOrder() {
+    if (cart.length === 0 || !currentTable) {
       return;
     }
 
-    const order = createOrder({
+    const result = await placeOrder(
+      currentTable.id,
       cart,
+      currentSession?.guests.length ?? pendingGuestCount ?? 1,
+    );
 
-      restaurantId: "nova-cafe",
-      tableId: "table-07",
-      tableName: "Table 07",
-    });
+    if (!result) {
+      // TODO: surface a real error toast instead of silently failing
+      console.error("Could not place order");
+      return;
+    }
 
-    addOrder(order, currentSession ? undefined : (pendingGuestCount ?? 1));
-    setCurrentOrder(order);
+    setCurrentOrderId(result.orderId);
     setPendingGuestCount(null);
 
     setCart([]);
@@ -158,7 +166,7 @@ export default function MenuPage() {
       return;
     }
 
-    requestBill(currentSession.id);
+    requestBillAsCustomer(currentSession.id);
   }
 
   function handleCancelCurrentOrder() {
@@ -166,12 +174,25 @@ export default function MenuPage() {
       return;
     }
 
-    cancelOrder(liveCurrentOrder.id);
-    setCurrentOrder(null);
+    cancelOrderAsCustomer(liveCurrentOrder.id);
+    setCurrentOrderId(null);
+  }
+
+  if (loading || !currentTable) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#0b0b0d] text-white/40">
+        Loading menu...
+      </main>
+    );
   }
 
   if (needsGuestGate) {
-    return <GuestGate tableName="Table 07" onConfirm={setPendingGuestCount} />;
+    return (
+      <GuestGate
+        tableName={CURRENT_TABLE_NAME}
+        onConfirm={setPendingGuestCount}
+      />
+    );
   }
 
   return (
@@ -188,7 +209,7 @@ export default function MenuPage() {
           </div>
 
           <button className="rounded-full border border-white/10 px-4 py-2 text-sm text-white/60 transition hover:bg-white/5">
-            Table 07
+            {CURRENT_TABLE_NAME}
           </button>
           <Link
             href="/dashboard"
@@ -387,7 +408,7 @@ export default function MenuPage() {
           billRequested={currentSession?.billRequested ?? false}
           onRequestBill={handleRequestBill}
           onCancel={handleCancelCurrentOrder}
-          onDone={() => setCurrentOrder(null)}
+          onDone={() => setCurrentOrderId(null)}
         />
       )}
 
@@ -396,7 +417,7 @@ export default function MenuPage() {
           session={currentSession}
           orders={orders}
           onClose={() => setBillViewOpen(false)}
-          onPay={() => markSessionPaid(currentSession.id)}
+          onPay={() => confirmPaymentAsCustomer(currentSession.id)}
         />
       )}
     </main>

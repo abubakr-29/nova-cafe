@@ -15,7 +15,7 @@ export function areCartItemsEquivalent(a: CartItem, b: CartItem) {
     return false;
   }
 
-  if (a.guestId !== b.guestId) {
+  if (a.guestIndex !== b.guestIndex) {
     return false;
   }
 

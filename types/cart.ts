@@ -10,5 +10,5 @@ export type CartItem = {
   addons: MenuOption[];
   note?: string;
   image: string;
-  guestId?: string;
+  guestIndex?: number;
 };

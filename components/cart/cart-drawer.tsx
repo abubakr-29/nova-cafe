@@ -123,8 +123,8 @@ export default function CartDrawer({
                   key={item.cartItemId}
                   item={item}
                   guestName={
-                    guests.length > 1
-                      ? guests.find((guest) => guest.id === item.guestId)?.name
+                    guests.length > 1 && item.guestIndex
+                      ? guests[item.guestIndex - 1]?.name
                       : undefined
                   }
                   onQuantityChange={onQuantityChange}

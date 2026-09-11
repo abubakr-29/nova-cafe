@@ -29,9 +29,9 @@ export default function MenuItemSheet({
   const [selectedAddons, setSelectedAddons] = useState<MenuOption[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState("");
-  const [selectedGuestId, setSelectedGuestId] = useState<string | undefined>(
-    guests[0]?.id,
-  );
+  const [selectedGuestIndex, setSelectedGuestIndex] = useState<
+    number | undefined
+  >(guests.length > 0 ? 1 : undefined);
 
   useEffect(() => {
     if (!item) return;
@@ -87,7 +87,7 @@ export default function MenuItemSheet({
       addons: selectedAddons,
       note: note.trim() || undefined,
       image: currentItem.image,
-      guestId: selectedGuestId,
+      guestIndex: selectedGuestIndex,
     });
 
     onClose();
@@ -239,13 +239,14 @@ export default function MenuItemSheet({
               <h3 className="mb-3 text-sm font-medium">Who&apos;s this for?</h3>
 
               <div className="flex flex-wrap gap-2">
-                {guests.map((guest) => {
-                  const selected = selectedGuestId === guest.id;
+                {guests.map((guest, index) => {
+                  const guestIndex = index + 1;
+                  const selected = selectedGuestIndex === guestIndex;
 
                   return (
                     <button
                       key={guest.id}
-                      onClick={() => setSelectedGuestId(guest.id)}
+                      onClick={() => setSelectedGuestIndex(guestIndex)}
                       className={`rounded-full border px-4 py-2 text-sm transition ${
                         selected
                           ? "border-[#d7a45a]/60 bg-[#d7a45a]/10 text-[#d7a45a]"

@@ -7,7 +7,7 @@ import type { Order } from "@/types/order";
 
 type OrderValidationPanelProps = {
   orders: Order[];
-  onValidate: (orderId: string, code: string) => boolean;
+  onValidate: (orderId: string, code: string) => Promise<boolean>;
   onCancel: (orderId: string) => void;
 };
 
@@ -55,15 +55,15 @@ function ValidationCard({
   onCancel,
 }: {
   order: Order;
-  onValidate: (orderId: string, code: string) => boolean;
+  onValidate: (orderId: string, code: string) => Promise<boolean>;
   onCancel: (orderId: string) => void;
 }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
 
-  function handleSubmit() {
-    const success = onValidate(order.id, code);
+  async function handleSubmit() {
+    const success = await onValidate(order.id, code);
 
     if (!success) {
       setError(true);
