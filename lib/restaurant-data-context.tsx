@@ -186,6 +186,8 @@ async function fetchOrders(
 
 type RestaurantDataContextValue = {
   loading: boolean;
+  restaurantId: string | null;
+  taxRate: number;
   orders: Order[];
   sessions: TableSession[];
   menuItems: MenuItem[];
@@ -224,6 +226,7 @@ const RestaurantDataContext = createContext<RestaurantDataContextValue | null>(
 export function RestaurantDataProvider({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => createClient());
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [taxRate, setTaxRate] = useState(0);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [sessions, setSessions] = useState<TableSession[]>([]);
@@ -253,13 +256,14 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
     async function init() {
       const { data: restaurant } = await supabase
         .from("restaurants")
-        .select("id")
+        .select("id, tax_rate")
         .eq("slug", RESTAURANT_SLUG)
         .single();
 
       if (!restaurant || ignore) return;
 
       setRestaurantId(restaurant.id);
+      setTaxRate(restaurant.tax_rate);
       await fetchAll(restaurant.id);
       if (!ignore) setLoading(false);
     }
@@ -334,6 +338,19 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         () => fetchAll(restaurantId),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "restaurants",
+          filter: `id=eq.${restaurantId}`,
+        },
+        (payload) => {
+          const updated = payload.new as { tax_rate: number };
+          setTaxRate(updated.tax_rate);
+        },
       )
       .subscribe();
 
@@ -537,6 +554,8 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
     <RestaurantDataContext.Provider
       value={{
         loading,
+        restaurantId,
+        taxRate,
         orders,
         sessions,
         menuItems,

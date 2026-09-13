@@ -52,7 +52,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
           <div className="mt-auto space-y-1">
             <NavLink
-              href="/dashboard"
+              href="/dashboard/settings"
               icon={<Settings size={16} />}
               label="Settings"
               active={false}
@@ -123,7 +123,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
               <div className="mt-auto space-y-1">
                 <NavLink
-                  href="/dashboard"
+                  href="/dashboard/settings"
                   icon={<Settings size={16} />}
                   label="Settings"
                   active={false}

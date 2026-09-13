@@ -6,6 +6,7 @@ import { Check, Users, X } from "lucide-react";
 import type { Order } from "@/types/order";
 import type { TableSession } from "@/types/session";
 import { calculateBill, calculateGuestShares } from "@/lib/bill";
+import { useRestaurantData } from "@/lib/restaurant-data-context";
 
 type BillViewProps = {
   session: TableSession;
@@ -20,6 +21,7 @@ export default function BillView({
   onClose,
   onPay,
 }: BillViewProps) {
+  const { taxRate } = useRestaurantData();
   const [view, setView] = useState<"overview" | "split">("overview");
   const [splitMode, setSplitMode] = useState<"equal" | "itemized">("equal");
 
@@ -30,7 +32,11 @@ export default function BillView({
   const bill = calculateBill(sessionOrders);
   const guestCount = Math.max(session.guests.length, 1);
   const equalShare = Math.ceil(bill.total / guestCount);
-  const guestShares = calculateGuestShares(sessionOrders, session.guests);
+  const guestShares = calculateGuestShares(
+    sessionOrders,
+    session.guests,
+    taxRate,
+  );
   const hasAssignedItems = sessionOrders.some((order) =>
     order.items.some((item) => item.assignedGuestId),
   );

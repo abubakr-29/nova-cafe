@@ -1,19 +1,17 @@
 import type { Order } from "@/types/order";
 import type { TableGuest } from "@/types/session";
 
-export const TAX_RATE = 0.05;
-
 export function calculateBill(orders: Order[]) {
   const billableOrders = orders.filter((order) => order.status !== "cancelled");
 
   const subtotal = billableOrders.reduce(
-    (total, order) => total + order.total,
+    (total, order) => total + order.subtotal,
     0,
   );
 
-  const tax = Math.round(subtotal * TAX_RATE);
+  const tax = billableOrders.reduce((total, order) => total + order.tax, 0);
 
-  const total = subtotal + tax;
+  const total = billableOrders.reduce((total, order) => total + order.total, 0);
 
   return {
     subtotal,
@@ -33,6 +31,7 @@ export type GuestShare = {
 export function calculateGuestShares(
   orders: Order[],
   guests: TableGuest[],
+  taxRate: number,
 ): GuestShare[] {
   const guestCount = Math.max(guests.length, 1);
   const guestIds = new Set(guests.map((guest) => guest.id));
@@ -55,7 +54,7 @@ export function calculateGuestShares(
       .reduce((total, item) => total + item.totalPrice, 0);
 
     const itemsTotal = assignedTotal + unassignedSharePerGuest;
-    const tax = Math.round(itemsTotal * TAX_RATE);
+    const tax = Math.round(itemsTotal * taxRate);
 
     return {
       guestId: guest.id,
