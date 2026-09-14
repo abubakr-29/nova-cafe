@@ -23,7 +23,7 @@ export default function MenuCard({ item, onSelect }: MenuCardProps) {
       role="button"
       tabIndex={soldOut ? -1 : 0}
       aria-disabled={soldOut}
-      className={`group overflow-hidden rounded-[28px] border border-white/8 bg-white/[0.035] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/20 ${
+      className={`group flex h-full flex-col overflow-hidden rounded-[28px] border border-white/8 bg-white/[0.035] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/20 ${
         soldOut
           ? "cursor-default opacity-45"
           : "cursor-pointer hover:-translate-y-1 hover:border-white/[0.14] hover:bg-white/5.5"
@@ -63,7 +63,7 @@ export default function MenuCard({ item, onSelect }: MenuCardProps) {
       </div>
 
       {/* Content */}
-      <div className="p-5">
+      <div className="flex flex-1 flex-col space-y-4 p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-medium tracking-tight text-white">
@@ -86,7 +86,7 @@ export default function MenuCard({ item, onSelect }: MenuCardProps) {
             if (!soldOut) onSelect(item);
           }}
           disabled={soldOut}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-full border border-white/10 py-3 text-sm font-medium text-white/80 transition-all hover:border-white/20 hover:bg-white hover:text-[#0b0b0d] active:scale-[0.98] disabled:cursor-default disabled:opacity-50 disabled:hover:border-white/10 disabled:hover:bg-transparent disabled:hover:text-white/80"
+          className="mt-auto flex w-full items-center justify-center gap-2 rounded-full border border-white/10 py-3 text-sm font-medium text-white/80 transition-all hover:border-white/20 hover:bg-white hover:text-[#0b0b0d] active:scale-[0.98] disabled:cursor-default disabled:opacity-50 disabled:hover:border-white/10 disabled:hover:bg-transparent disabled:hover:text-white/80"
         >
           <Plus size={16} />
           {soldOut ? "Sold out" : "Customize"}

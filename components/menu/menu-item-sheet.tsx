@@ -110,13 +110,15 @@ export default function MenuItemSheet({
         className="animate-sheet relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-4xl border border-white/10 bg-[#151519] shadow-2xl"
       >
         {/* Close */}
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-md transition hover:bg-black/70 hover:text-white"
-        >
-          <X size={18} />
-        </button>
+        <div className="sticky top-5 z-20 h-0">
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute right-5 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-md transition hover:bg-black/70 hover:text-white"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         {/* Image */}
         <div className="relative aspect-video overflow-hidden">
@@ -281,7 +283,7 @@ export default function MenuItemSheet({
 
           {/* Quantity + Add */}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <div className="flex h-14 items-center justify-between rounded-full border border-white/10 px-2 sm:w-36">
+            <div className="flex h-14 w-full items-center justify-between rounded-full border border-white/10 px-2 sm:w-36">
               <button
                 onClick={() =>
                   setQuantity((current) => Math.max(1, current - 1))
@@ -308,7 +310,7 @@ export default function MenuItemSheet({
 
             <button
               onClick={handleAdd}
-              className="flex h-14 flex-1 items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
+              className="flex h-14 w-full items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99] sm:flex-1"
             >
               <span>Add to order</span>
 
