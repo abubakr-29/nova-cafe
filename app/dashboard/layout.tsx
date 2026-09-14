@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutGrid,
   Menu as MenuIcon,
@@ -13,23 +13,56 @@ import {
   X,
 } from "lucide-react";
 
-const navItems = [
+import { createClient } from "@/lib/supabase/client";
+
+const baseNavItems = [
   { href: "/dashboard", icon: LayoutGrid, label: "Overview" },
   { href: "/dashboard", icon: Utensils, label: "Floor" },
   { href: "/dashboard", icon: ShoppingBag, label: "Orders" },
   { href: "/dashboard/menu", icon: MenuIcon, label: "Menu" },
-  { href: "/dashboard/staff", icon: User, label: "Staff" },
 ];
+
+const staffNavItem = { href: "/dashboard/staff", icon: User, label: "Staff" };
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+    const supabase = createClient();
+
+    async function checkRole() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || ignore) return;
+
+      const { data: profile } = await supabase
+        .from("staff_profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (!ignore) setIsOwner(profile?.role === "owner");
+    }
+
+    checkRole();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const navItems = isOwner ? [...baseNavItems, staffNavItem] : baseNavItems;
 
   return (
-    <main className="min-h-screen bg-[#0b0b0d] text-[#f5f2ea]">
-      <div className="flex min-h-screen">
+    <main className="h-screen overflow-hidden bg-[#0b0b0d] text-[#f5f2ea]">
+      <div className="flex h-screen">
         {/* Sidebar — desktop */}
-        <aside className="hidden w-60 shrink-0 border-r border-white/[0.07] bg-[#0d0d10] px-5 py-7 lg:flex lg:flex-col">
+        <aside className="hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-white/[0.07] bg-[#0d0d10] px-5 py-7 lg:flex lg:h-screen">
           <div className="px-3">
             <p className="text-[10px] uppercase tracking-[0.3em] text-white/35">
               NOVA
@@ -135,7 +168,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         )}
 
         {/* Main */}
-        <div className="min-w-0 flex-1 pt-16 lg:pt-0">{children}</div>
+        <div className="min-w-0 flex-1 overflow-y-auto pt-16 lg:pt-0">
+          {children}
+        </div>
       </div>
     </main>
   );
