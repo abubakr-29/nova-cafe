@@ -17,3 +17,8 @@ export type MenuItem = {
   sizes?: MenuOption[];
   addons?: MenuOption[];
 };
+
+export type MenuCategory = {
+  id: string;
+  name: string;
+};

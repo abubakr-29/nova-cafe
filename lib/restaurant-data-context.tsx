@@ -12,13 +12,9 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { Order, OrderStatus } from "@/types/order";
 import type { TableSession } from "@/types/session";
-import type { MenuItem } from "@/types/menu";
+import type { MenuCategory, MenuItem } from "@/types/menu";
 import type { RestaurantTable } from "@/types/table";
 import type { CartItem } from "@/types/cart";
-
-// Single restaurant for now — becomes a real per-tenant lookup
-// (from the URL) once Phase 5 (QR routing) happens.
-const RESTAURANT_SLUG = "white-cave";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -57,14 +53,18 @@ async function fetchTables(
 async function fetchMenu(
   supabase: SupabaseClient,
   restaurantId: string,
-): Promise<MenuItem[]> {
-  const { data: categories } = await supabase
+): Promise<{ items: MenuItem[]; categories: MenuCategory[] }> {
+  // Ordered by sort_order to match the order staff set up in the CMS
+  // (dashboard/menu) — the customer menu's category tabs should mirror
+  // that, not an arbitrary/hardcoded list.
+  const { data: categoryRows } = await supabase
     .from("menu_categories")
     .select("id, name")
-    .eq("restaurant_id", restaurantId);
+    .eq("restaurant_id", restaurantId)
+    .order("sort_order");
 
   const categoryNameById = new Map(
-    (categories ?? []).map((c) => [c.id, c.name]),
+    (categoryRows ?? []).map((c) => [c.id, c.name]),
   );
 
   const { data: items } = await supabase
@@ -75,29 +75,32 @@ async function fetchMenu(
     .eq("restaurant_id", restaurantId)
     .order("sort_order");
 
-  return (items ?? []).map((item) => ({
-    id: item.id,
-    name: item.name,
-    description: item.description ?? "",
-    price: item.price,
-    image: item.image_url ?? "",
-    category: categoryNameById.get(item.category_id) ?? "",
-    available: item.available,
-    sizes: item.menu_item_sizes?.length
-      ? item.menu_item_sizes.map((s) => ({
-          id: s.id,
-          name: s.name,
-          price: s.price,
-        }))
-      : undefined,
-    addons: item.menu_item_addons?.length
-      ? item.menu_item_addons.map((a) => ({
-          id: a.id,
-          name: a.name,
-          price: a.price,
-        }))
-      : undefined,
-  }));
+  return {
+    categories: (categoryRows ?? []).map((c) => ({ id: c.id, name: c.name })),
+    items: (items ?? []).map((item) => ({
+      id: item.id,
+      name: item.name,
+      description: item.description ?? "",
+      price: item.price,
+      image: item.image_url ?? "",
+      category: categoryNameById.get(item.category_id) ?? "",
+      available: item.available,
+      sizes: item.menu_item_sizes?.length
+        ? item.menu_item_sizes.map((s) => ({
+            id: s.id,
+            name: s.name,
+            price: s.price,
+          }))
+        : undefined,
+      addons: item.menu_item_addons?.length
+        ? item.menu_item_addons.map((a) => ({
+            id: a.id,
+            name: a.name,
+            price: a.price,
+          }))
+        : undefined,
+    })),
+  };
 }
 
 async function fetchSessions(
@@ -191,6 +194,7 @@ type RestaurantDataContextValue = {
   orders: Order[];
   sessions: TableSession[];
   menuItems: MenuItem[];
+  menuCategories: MenuCategory[];
   tables: RestaurantTable[];
 
   // Customer-initiated writes — go through SECURITY DEFINER RPCs,
@@ -223,14 +227,34 @@ const RestaurantDataContext = createContext<RestaurantDataContextValue | null>(
   null,
 );
 
-export function RestaurantDataProvider({ children }: { children: ReactNode }) {
+export function RestaurantDataProvider({
+  restaurantSlug,
+  children,
+}: {
+  // Customer flow (reached via a table's QR code, no login): pass the
+  // slug straight from the URL. Staff flow (/dashboard, already behind
+  // auth): omit this entirely — the provider resolves the authenticated
+  // staff member's own restaurant via the `current_restaurant_id()` RPC
+  // instead, the same auth-scoped lookup the dashboard's CMS pages
+  // already use, so each staff account only ever sees its own café's
+  // data. This is what makes it multi-tenant from the start rather than
+  // hardcoding a single restaurant for the dashboard.
+  restaurantSlug?: string;
+  children: ReactNode;
+}) {
   const [supabase] = useState(() => createClient());
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  // The resolved slug for the current restaurant, regardless of which
+  // path found it — placeOrder's RPC takes a slug, and this keeps it
+  // correct for the staff flow too (where there's no incoming slug prop
+  // to read from).
+  const [resolvedSlug, setResolvedSlug] = useState<string | null>(null);
   const [taxRate, setTaxRate] = useState(0);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [sessions, setSessions] = useState<TableSession[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
 
   const fetchAll = useCallback(
@@ -243,7 +267,8 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
       ]);
 
       setTables(tablesRes);
-      setMenuItems(menuRes);
+      setMenuItems(menuRes.items);
+      setMenuCategories(menuRes.categories);
       setSessions(sessionsRes);
       setOrders(ordersRes);
     },
@@ -254,15 +279,45 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
     let ignore = false;
 
     async function init() {
-      const { data: restaurant } = await supabase
-        .from("restaurants")
-        .select("id, tax_rate")
-        .eq("slug", RESTAURANT_SLUG)
-        .single();
+      setLoading(true);
 
-      if (!restaurant || ignore) return;
+      const restaurant = restaurantSlug
+        ? await (async () => {
+            const { data } = await supabase
+              .from("restaurants")
+              .select("id, slug, tax_rate")
+              .eq("slug", restaurantSlug)
+              .single();
+            return data;
+          })()
+        : await (async () => {
+            const { data: rid } = await supabase.rpc("current_restaurant_id");
+            if (!rid) return null;
+
+            const { data } = await supabase
+              .from("restaurants")
+              .select("id, slug, tax_rate")
+              .eq("id", rid)
+              .single();
+            return data;
+          })();
+
+      if (ignore) return;
+
+      // No matching restaurant — a bad/stale QR code for the customer
+      // flow, or a staff account with no restaurant linked yet. Still
+      // clear `loading` so callers can tell "still loading" apart from
+      // "there's no restaurant here" and show the right message, instead
+      // of spinning forever.
+      if (!restaurant) {
+        setRestaurantId(null);
+        setResolvedSlug(null);
+        setLoading(false);
+        return;
+      }
 
       setRestaurantId(restaurant.id);
+      setResolvedSlug(restaurant.slug);
       setTaxRate(restaurant.tax_rate);
       await fetchAll(restaurant.id);
       if (!ignore) setLoading(false);
@@ -273,7 +328,7 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
     return () => {
       ignore = true;
     };
-  }, [supabase, fetchAll]);
+  }, [supabase, fetchAll, restaurantSlug]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -365,6 +420,11 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
       cart: CartItem[],
       guestCount: number,
     ): Promise<PlaceOrderResult | null> => {
+      if (!resolvedSlug) {
+        console.error("place_order called before a restaurant was resolved");
+        return null;
+      }
+
       const items = cart.map((item) => ({
         menu_item_id: item.menuItemId,
         quantity: item.quantity,
@@ -375,7 +435,7 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
       }));
 
       const { data, error } = await supabase.rpc("place_order", {
-        p_restaurant_slug: RESTAURANT_SLUG,
+        p_restaurant_slug: resolvedSlug,
         p_table_id: tableId,
         p_guest_count: guestCount,
         p_items: items,
@@ -394,7 +454,7 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
         validationCode: data[0].validation_code,
       };
     },
-    [supabase, restaurantId, fetchAll],
+    [supabase, restaurantId, resolvedSlug, fetchAll],
   );
 
   const requestBillAsCustomer = useCallback(
@@ -559,6 +619,7 @@ export function RestaurantDataProvider({ children }: { children: ReactNode }) {
         orders,
         sessions,
         menuItems,
+        menuCategories,
         tables,
         placeOrder,
         requestBillAsCustomer,
