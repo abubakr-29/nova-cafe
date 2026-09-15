@@ -2,7 +2,6 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -103,13 +102,6 @@ function LoginForm() {
         >
           {loading ? "Signing in..." : "Sign in"}
         </button>
-
-        <p className="mt-5 text-center text-xs text-white/30">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-white/60 hover:text-white">
-            Sign up
-          </Link>
-        </p>
       </form>
     </main>
   );

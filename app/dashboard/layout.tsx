@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutGrid,
+  LogOut,
   Menu as MenuIcon,
   Settings,
   ShoppingBag,
@@ -27,8 +28,16 @@ const staffNavItem = { href: "/dashboard/staff", icon: User, label: "Staff" };
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   useEffect(() => {
     let ignore = false;
@@ -92,6 +101,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 label="Settings"
                 active={false}
               />
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/35 transition hover:bg-white/4 hover:text-white/70"
+              >
+                <LogOut size={16} />
+                <span>Sign out</span>
+              </button>
             </div>
           </aside>
 
@@ -164,6 +181,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     active={false}
                     onClick={() => setMobileNavOpen(false)}
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileNavOpen(false);
+                      handleSignOut();
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/35 transition hover:bg-white/4 hover:text-white/70"
+                  >
+                    <LogOut size={16} />
+                    <span>Sign out</span>
+                  </button>
                 </div>
               </aside>
             </div>
