@@ -38,7 +38,7 @@ export default function MenuPageClient({
   tableId,
 }: MenuPageClientProps) {
   return (
-    <RestaurantDataProvider restaurantSlug={restaurantSlug}>
+    <RestaurantDataProvider restaurantSlug={restaurantSlug} tableId={tableId}>
       <MenuPage tableId={tableId} />
     </RestaurantDataProvider>
   );

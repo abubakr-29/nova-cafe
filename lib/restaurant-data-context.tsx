@@ -24,6 +24,12 @@ type PlaceOrderResult = {
   validationCode: string;
 };
 
+// How often the customer menu page re-polls its own table's status.
+// Customers don't get Realtime push updates (see the note above the
+// Realtime effect below for why) — this keeps things feeling live
+// without it.
+const CUSTOMER_POLL_INTERVAL_MS = 6000;
+
 async function fetchTables(
   supabase: SupabaseClient,
   restaurantId: string,
@@ -103,6 +109,11 @@ async function fetchMenu(
   };
 }
 
+// STAFF-ONLY: reads every session for the whole restaurant. Safe for
+// staff because RLS scopes "staff manage own sessions" by
+// current_restaurant_id() — never used for the customer flow, which
+// uses fetchCustomerView below instead (see the security-fix migration
+// for why: this table has no anon read policy at all anymore).
 async function fetchSessions(
   supabase: SupabaseClient,
   restaurantId: string,
@@ -133,6 +144,8 @@ async function fetchSessions(
   }));
 }
 
+// STAFF-ONLY: reads every order for the whole restaurant. See the note
+// on fetchSessions above — same reasoning applies here.
 async function fetchOrders(
   supabase: SupabaseClient,
   restaurantId: string,
@@ -187,6 +200,158 @@ async function fetchOrders(
   }));
 }
 
+type CustomerTableView = {
+  table: RestaurantTable | null;
+  session: TableSession | null;
+  orders: Order[];
+};
+
+// CUSTOMER-ONLY: the one narrow, parameterized entry point for the
+// customer menu page. Calls a SECURITY DEFINER Postgres function
+// (get_customer_table_view — see the security-fix migration) that
+// returns ONLY this one table's own current session and its own
+// orders — never any other table's, and never a closed/previous
+// session's orders at the same table. This is the fix for the RLS
+// hole where anon used to be able to read every restaurant's entire
+// orders/sessions tables directly.
+async function fetchCustomerView(
+  supabase: SupabaseClient,
+  restaurantId: string,
+  restaurantSlug: string,
+  tableId: string,
+): Promise<CustomerTableView> {
+  const { data, error } = await supabase.rpc("get_customer_table_view", {
+    p_restaurant_slug: restaurantSlug,
+    p_table_id: tableId,
+  });
+
+  if (error || !data) {
+    return { table: null, session: null, orders: [] };
+  }
+
+  const raw = data as {
+    table: {
+      id: string;
+      name: string;
+      seats: number;
+      shape: RestaurantTable["shape"];
+      status: RestaurantTable["status"];
+      position_x: number;
+      position_y: number;
+      position_width: number;
+      position_height: number;
+    } | null;
+    session: {
+      id: string;
+      table_id: string;
+      status: TableSession["status"];
+      bill_requested: boolean;
+      payment_status: TableSession["paymentStatus"];
+      started_at: string;
+      table_name: string;
+      guests: { id: string; name: string; sort_order: number }[];
+      orders: { id: string }[];
+    } | null;
+    orders: {
+      id: string;
+      order_number: string;
+      validation_code: string;
+      table_id: string;
+      status: OrderStatus;
+      subtotal: number;
+      tax: number;
+      total: number;
+      created_at: string;
+      table_name: string;
+      order_items: {
+        id: string;
+        menu_item_id: string;
+        name: string;
+        image_url: string | null;
+        base_price: number;
+        size_name: string | null;
+        size_price: number | null;
+        note: string | null;
+        quantity: number;
+        unit_price: number;
+        total_price: number;
+        assigned_guest_id: string | null;
+        order_item_addons: { name: string; price: number }[];
+      }[];
+    }[];
+  };
+
+  const table: RestaurantTable | null = raw.table
+    ? {
+        id: raw.table.id,
+        name: raw.table.name,
+        seats: raw.table.seats,
+        shape: raw.table.shape,
+        status: raw.table.status,
+        position: {
+          x: raw.table.position_x,
+          y: raw.table.position_y,
+          width: raw.table.position_width,
+          height: raw.table.position_height,
+        },
+      }
+    : null;
+
+  const session: TableSession | null = raw.session
+    ? {
+        id: raw.session.id,
+        restaurantId,
+        tableId: raw.session.table_id,
+        tableName: raw.session.table_name,
+        guests: (raw.session.guests ?? [])
+          .slice()
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((g) => ({ id: g.id, name: g.name })),
+        orderIds: (raw.session.orders ?? []).map((o) => o.id),
+        startedAt: raw.session.started_at,
+        status: raw.session.status,
+        billRequested: raw.session.bill_requested,
+        paymentStatus: raw.session.payment_status,
+      }
+    : null;
+
+  const orders: Order[] = (raw.orders ?? []).map((o) => ({
+    id: o.id,
+    orderNumber: o.order_number,
+    validationCode: o.validation_code,
+    restaurantId,
+    tableId: o.table_id,
+    tableName: o.table_name,
+    status: o.status,
+    subtotal: o.subtotal,
+    tax: o.tax,
+    total: o.total,
+    createdAt: o.created_at,
+    items: (o.order_items ?? []).map((oi) => ({
+      orderItemId: oi.id,
+      menuItemId: oi.menu_item_id,
+      name: oi.name,
+      image: oi.image_url ?? "",
+      basePrice: oi.base_price,
+      quantity: oi.quantity,
+      size: oi.size_name
+        ? { id: `${oi.id}-size`, name: oi.size_name, price: oi.size_price ?? 0 }
+        : undefined,
+      addons: (oi.order_item_addons ?? []).map((a, index) => ({
+        id: `${oi.id}-addon-${index}`,
+        name: a.name,
+        price: a.price,
+      })),
+      note: oi.note ?? undefined,
+      unitPrice: oi.unit_price,
+      totalPrice: oi.total_price,
+      assignedGuestId: oi.assigned_guest_id ?? undefined,
+    })),
+  }));
+
+  return { table, session, orders };
+}
+
 type RestaurantDataContextValue = {
   loading: boolean;
   restaurantId: string | null;
@@ -229,19 +394,24 @@ const RestaurantDataContext = createContext<RestaurantDataContextValue | null>(
 
 export function RestaurantDataProvider({
   restaurantSlug,
+  tableId,
   children,
 }: {
-  // Customer flow (reached via a table's QR code, no login): pass the
-  // slug straight from the URL. Staff flow (/dashboard, already behind
-  // auth): omit this entirely — the provider resolves the authenticated
-  // staff member's own restaurant via the `current_restaurant_id()` RPC
-  // instead, the same auth-scoped lookup the dashboard's CMS pages
-  // already use, so each staff account only ever sees its own café's
-  // data. This is what makes it multi-tenant from the start rather than
-  // hardcoding a single restaurant for the dashboard.
+  // Customer flow (reached via a table's QR code, no login): pass BOTH
+  // restaurantSlug and tableId — this switches the provider into
+  // customer mode, which reads only that one table's own data (see
+  // fetchCustomerView above) and polls instead of using Realtime.
+  // Staff flow (/dashboard, already behind auth): omit both — the
+  // provider resolves the authenticated staff member's own restaurant
+  // via the `current_restaurant_id()` RPC and reads/subscribes broadly,
+  // which is safe because RLS already scopes staff to their own
+  // restaurant.
   restaurantSlug?: string;
+  tableId?: string;
   children: ReactNode;
 }) {
+  const isCustomerMode = Boolean(restaurantSlug && tableId);
+
   const [supabase] = useState(() => createClient());
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   // The resolved slug for the current restaurant, regardless of which
@@ -257,6 +427,7 @@ export function RestaurantDataProvider({
   const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
 
+  // STAFF-ONLY broad fetch — everything for the restaurant.
   const fetchAll = useCallback(
     async (rid: string) => {
       const [tablesRes, menuRes, sessionsRes, ordersRes] = await Promise.all([
@@ -273,6 +444,28 @@ export function RestaurantDataProvider({
       setOrders(ordersRes);
     },
     [supabase],
+  );
+
+  // Mode-aware load: staff gets the broad fetch above; a customer gets
+  // the full (public) menu plus ONLY their own table's narrow view.
+  const loadData = useCallback(
+    async (rid: string) => {
+      if (isCustomerMode && restaurantSlug && tableId) {
+        const [menuRes, view] = await Promise.all([
+          fetchMenu(supabase, rid),
+          fetchCustomerView(supabase, rid, restaurantSlug, tableId),
+        ]);
+
+        setMenuItems(menuRes.items);
+        setMenuCategories(menuRes.categories);
+        setTables(view.table ? [view.table] : []);
+        setSessions(view.session ? [view.session] : []);
+        setOrders(view.orders);
+      } else {
+        await fetchAll(rid);
+      }
+    },
+    [supabase, isCustomerMode, restaurantSlug, tableId, fetchAll],
   );
 
   useEffect(() => {
@@ -319,7 +512,7 @@ export function RestaurantDataProvider({
       setRestaurantId(restaurant.id);
       setResolvedSlug(restaurant.slug);
       setTaxRate(restaurant.tax_rate);
-      await fetchAll(restaurant.id);
+      await loadData(restaurant.id);
       if (!ignore) setLoading(false);
     }
 
@@ -328,10 +521,26 @@ export function RestaurantDataProvider({
     return () => {
       ignore = true;
     };
-  }, [supabase, fetchAll, restaurantSlug]);
+  }, [supabase, loadData, restaurantSlug]);
 
+  // Single refetch used by every write method below — resolves to the
+  // right (staff-broad or customer-narrow) reload automatically via
+  // loadData, so a write method never has to know or care which mode
+  // it's running in.
+  const refetch = useCallback(async () => {
+    if (restaurantId) await loadData(restaurantId);
+  }, [restaurantId, loadData]);
+
+  // STAFF-ONLY Realtime. Deliberately skipped entirely in customer mode:
+  // Supabase Realtime enforces the same RLS policies as direct reads, so
+  // now that anon has no read policy left on table_sessions/orders/etc.
+  // (see the security-fix migration), a customer's subscription to those
+  // tables wouldn't receive anything anyway. Rather than leave a dead
+  // subscription around, the customer page polls its own narrow view
+  // instead (see the effect below) — slightly less instant than a push
+  // update, but the trade a public no-login visitor should get.
   useEffect(() => {
-    if (!restaurantId) return;
+    if (!restaurantId || isCustomerMode) return;
 
     // Simple, deliberately coarse Realtime strategy: any relevant
     // change just re-fetches everything, instead of hand-patching
@@ -347,17 +556,17 @@ export function RestaurantDataProvider({
           table: "orders",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        () => fetchAll(restaurantId),
+        () => refetch(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_items" },
-        () => fetchAll(restaurantId),
+        () => refetch(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_item_addons" },
-        () => fetchAll(restaurantId),
+        () => refetch(),
       )
       .on(
         "postgres_changes",
@@ -367,12 +576,12 @@ export function RestaurantDataProvider({
           table: "table_sessions",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        () => fetchAll(restaurantId),
+        () => refetch(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "session_guests" },
-        () => fetchAll(restaurantId),
+        () => refetch(),
       )
       .on(
         "postgres_changes",
@@ -382,7 +591,7 @@ export function RestaurantDataProvider({
           table: "restaurant_tables",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        () => fetchAll(restaurantId),
+        () => refetch(),
       )
       .on(
         "postgres_changes",
@@ -392,7 +601,7 @@ export function RestaurantDataProvider({
           table: "menu_items",
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        () => fetchAll(restaurantId),
+        () => refetch(),
       )
       .on(
         "postgres_changes",
@@ -412,7 +621,18 @@ export function RestaurantDataProvider({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, restaurantId, fetchAll]);
+  }, [supabase, restaurantId, isCustomerMode, refetch]);
+
+  // CUSTOMER-ONLY polling — the replacement for Realtime described above.
+  useEffect(() => {
+    if (!restaurantId || !isCustomerMode) return;
+
+    const interval = setInterval(() => {
+      refetch();
+    }, CUSTOMER_POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [restaurantId, isCustomerMode, refetch]);
 
   const placeOrder = useCallback(
     async (
@@ -446,7 +666,7 @@ export function RestaurantDataProvider({
         return null;
       }
 
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
 
       return {
         orderId: data[0].order_id,
@@ -454,31 +674,31 @@ export function RestaurantDataProvider({
         validationCode: data[0].validation_code,
       };
     },
-    [supabase, restaurantId, resolvedSlug, fetchAll],
+    [supabase, resolvedSlug, refetch],
   );
 
   const requestBillAsCustomer = useCallback(
     async (sessionId: string) => {
       await supabase.rpc("request_bill", { p_session_id: sessionId });
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
     },
-    [supabase, restaurantId, fetchAll],
+    [supabase, refetch],
   );
 
   const cancelOrderAsCustomer = useCallback(
     async (orderId: string) => {
       await supabase.rpc("cancel_order", { p_order_id: orderId });
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
     },
-    [supabase, restaurantId, fetchAll],
+    [supabase, refetch],
   );
 
   const confirmPaymentAsCustomer = useCallback(
     async (sessionId: string) => {
       await supabase.rpc("confirm_payment", { p_session_id: sessionId });
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
     },
-    [supabase, restaurantId, fetchAll],
+    [supabase, refetch],
   );
 
   const requestBill = useCallback(
@@ -487,17 +707,17 @@ export function RestaurantDataProvider({
         .from("table_sessions")
         .update({ bill_requested: true })
         .eq("id", sessionId);
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
     },
-    [supabase, restaurantId, fetchAll],
+    [supabase, refetch],
   );
 
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus) => {
       await supabase.from("orders").update({ status }).eq("id", orderId);
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
     },
-    [supabase, restaurantId, fetchAll],
+    [supabase, refetch],
   );
 
   const cancelOrder = useCallback(
@@ -506,9 +726,9 @@ export function RestaurantDataProvider({
         .from("orders")
         .update({ status: "cancelled" })
         .eq("id", orderId);
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
     },
-    [supabase, restaurantId, fetchAll],
+    [supabase, refetch],
   );
 
   const validateOrder = useCallback(
@@ -527,10 +747,10 @@ export function RestaurantDataProvider({
         .from("orders")
         .update({ status: "pending" })
         .eq("id", orderId);
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
       return true;
     },
-    [supabase, restaurantId, fetchAll],
+    [supabase, refetch],
   );
 
   const markSessionPaid = useCallback(
@@ -539,9 +759,9 @@ export function RestaurantDataProvider({
         .from("table_sessions")
         .update({ payment_status: "paid" })
         .eq("id", sessionId);
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
     },
-    [supabase, restaurantId, fetchAll],
+    [supabase, refetch],
   );
 
   const toggleItemAvailability = useCallback(
@@ -554,9 +774,9 @@ export function RestaurantDataProvider({
         .update({ available: !(item.available ?? true) })
         .eq("id", itemId);
 
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
     },
-    [supabase, menuItems, restaurantId, fetchAll],
+    [supabase, menuItems, refetch],
   );
 
   const closeTableSession = useCallback(
@@ -577,9 +797,9 @@ export function RestaurantDataProvider({
         .update({ status: "available" })
         .eq("id", tableId);
 
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
     },
-    [supabase, sessions, restaurantId, fetchAll],
+    [supabase, sessions, refetch],
   );
 
   const updateSessionGuestCount = useCallback(
@@ -605,9 +825,9 @@ export function RestaurantDataProvider({
         await supabase.from("session_guests").insert(newGuests);
       }
 
-      if (restaurantId) await fetchAll(restaurantId);
+      await refetch();
     },
-    [supabase, sessions, restaurantId, fetchAll],
+    [supabase, sessions, refetch],
   );
 
   return (
