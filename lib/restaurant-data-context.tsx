@@ -18,11 +18,9 @@ import type { CartItem } from "@/types/cart";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
-type PlaceOrderResult = {
-  orderId: string;
-  orderNumber: string;
-  validationCode: string;
-};
+type PlaceOrderResult =
+  | { ok: true; orderId: string; orderNumber: string; validationCode: string }
+  | { ok: false; error: string };
 
 // How often the customer menu page re-polls its own table's status.
 // Customers don't get Realtime push updates (see the note above the
@@ -368,7 +366,7 @@ type RestaurantDataContextValue = {
     tableId: string,
     cart: CartItem[],
     guestCount: number,
-  ) => Promise<PlaceOrderResult | null>;
+  ) => Promise<PlaceOrderResult>;
   requestBillAsCustomer: (sessionId: string) => Promise<void>;
   cancelOrderAsCustomer: (orderId: string) => Promise<void>;
   confirmPaymentAsCustomer: (sessionId: string) => Promise<void>;
@@ -639,10 +637,13 @@ export function RestaurantDataProvider({
       tableId: string,
       cart: CartItem[],
       guestCount: number,
-    ): Promise<PlaceOrderResult | null> => {
+    ): Promise<PlaceOrderResult> => {
       if (!resolvedSlug) {
         console.error("place_order called before a restaurant was resolved");
-        return null;
+        return {
+          ok: false,
+          error: "Something went wrong. Please refresh and try again.",
+        };
       }
 
       const items = cart.map((item) => ({
@@ -663,12 +664,20 @@ export function RestaurantDataProvider({
 
       if (error || !data || data.length === 0) {
         console.error("place_order failed", error);
-        return null;
+        // Postgres RAISE EXCEPTION messages (like the checks in the
+        // place_order function) arrive here as error.message — safe to
+        // show directly, they're written to be customer-facing.
+        return {
+          ok: false,
+          error:
+            error?.message || "Could not place your order. Please try again.",
+        };
       }
 
       await refetch();
 
       return {
+        ok: true,
         orderId: data[0].order_id,
         orderNumber: data[0].order_number,
         validationCode: data[0].validation_code,

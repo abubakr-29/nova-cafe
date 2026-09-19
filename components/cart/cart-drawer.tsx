@@ -16,6 +16,7 @@ type CartDrawerProps = {
   onQuantityChange: (cartItemId: string, quantity: number) => void;
   onRemove: (cartItemId: string) => void;
   onPlaceOrder: () => void;
+  submitting?: boolean;
 };
 
 export default function CartDrawer({
@@ -26,6 +27,7 @@ export default function CartDrawer({
   onQuantityChange,
   onRemove,
   onPlaceOrder,
+  submitting = false,
 }: CartDrawerProps) {
   useEffect(() => {
     if (!open) return;
@@ -193,10 +195,10 @@ export default function CartDrawer({
             <button
               type="button"
               onClick={onPlaceOrder}
-              className="mt-6 flex h-14 w-full items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
+              disabled={submitting}
+              className="mt-6 flex h-14 w-full items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
             >
-              <span>Place order</span>
-
+              <span>{submitting ? "Placing order..." : "Place order"}</span>
               <span>₹{subtotal}</span>
             </button>
 

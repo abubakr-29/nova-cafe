@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, ShoppingBag, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import MenuCard from "@/components/menu/menu-card";
 import CartDrawer from "@/components/cart/cart-drawer";
@@ -55,6 +55,16 @@ function MenuPage({ tableId }: { tableId: string }) {
   const [pendingGuestCount, setPendingGuestCount] = useState<number | null>(
     null,
   );
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+
+  // Auto-dismiss the order error banner after a few seconds rather than
+  // leaving it stuck on screen.
+  useEffect(() => {
+    if (!orderError) return;
+    const timer = setTimeout(() => setOrderError(null), 5000);
+    return () => clearTimeout(timer);
+  }, [orderError]);
 
   const {
     loading,
@@ -153,9 +163,12 @@ function MenuPage({ tableId }: { tableId: string }) {
   );
 
   async function handlePlaceOrder() {
-    if (cart.length === 0 || !currentTable) {
+    if (cart.length === 0 || !currentTable || isPlacingOrder) {
       return;
     }
+
+    setOrderError(null);
+    setIsPlacingOrder(true);
 
     const result = await placeOrder(
       currentTable.id,
@@ -163,9 +176,10 @@ function MenuPage({ tableId }: { tableId: string }) {
       currentSession?.guests.length ?? pendingGuestCount ?? 1,
     );
 
-    if (!result) {
-      // TODO: surface a real error toast instead of silently failing
-      console.error("Could not place order");
+    setIsPlacingOrder(false);
+
+    if (!result.ok) {
+      setOrderError(result.error);
       return;
     }
 
@@ -335,6 +349,15 @@ function MenuPage({ tableId }: { tableId: string }) {
         </section>
       </div>
 
+      {/* Order error banner */}
+      {orderError && (
+        <div className="fixed top-6 left-1/2 z-50 w-[calc(100%-32px)] max-w-xl -translate-x-1/2">
+          <div className="rounded-2xl border border-red-400/20 bg-red-950/80 px-5 py-3 text-center text-sm text-red-200 shadow-2xl backdrop-blur-xl">
+            {orderError}
+          </div>
+        </div>
+      )}
+
       {/* Floating Cart */}
       {cartCount > 0 && (
         <div className="fixed bottom-6 left-1/2 z-50 w-[calc(100%-32px)] max-w-xl -translate-x-1/2">
@@ -427,6 +450,7 @@ function MenuPage({ tableId }: { tableId: string }) {
         onQuantityChange={changeCartItemQuantity}
         onRemove={removeFromCart}
         onPlaceOrder={handlePlaceOrder}
+        submitting={isPlacingOrder}
       />
 
       {liveCurrentOrder && (
