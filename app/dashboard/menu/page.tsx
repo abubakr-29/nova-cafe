@@ -67,6 +67,15 @@ export default function DashboardMenuPage() {
   const [confirmingDeleteItemId, setConfirmingDeleteItemId] = useState<
     string | null
   >(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Auto-dismiss the error banner after a few seconds rather than
+  // leaving it stuck on screen.
+  useEffect(() => {
+    if (!saveError) return;
+    const timer = setTimeout(() => setSaveError(null), 5000);
+    return () => clearTimeout(timer);
+  }, [saveError]);
 
   async function loadData() {
     const { data: rid } = await supabase.rpc("current_restaurant_id");
@@ -144,11 +153,16 @@ export default function DashboardMenuPage() {
   async function handleAddCategory() {
     if (!newCategoryName.trim() || !restaurantId) return;
 
-    await supabase.from("menu_categories").insert({
+    const { error } = await supabase.from("menu_categories").insert({
       restaurant_id: restaurantId,
       name: newCategoryName.trim(),
       sort_order: categories.length + 1,
     });
+
+    if (error) {
+      setSaveError("Could not add category. Please try again.");
+      return;
+    }
 
     setNewCategoryName("");
     loadData();
@@ -160,18 +174,35 @@ export default function DashboardMenuPage() {
       return;
     }
 
-    await supabase
+    const { error } = await supabase
       .from("menu_categories")
       .update({ name: editingCategoryName.trim() })
       .eq("id", id);
+
+    if (error) {
+      setSaveError("Could not rename category. Please try again.");
+      return;
+    }
 
     setEditingCategoryId(null);
     loadData();
   }
 
   async function handleDeleteCategory(id: string) {
-    await supabase.from("menu_categories").delete().eq("id", id);
+    const { error } = await supabase
+      .from("menu_categories")
+      .delete()
+      .eq("id", id);
+
     setConfirmingDeleteCategoryId(null);
+
+    if (error) {
+      setSaveError(
+        "Could not delete category. Move or delete its items first, then try again.",
+      );
+      return;
+    }
+
     loadData();
   }
 
@@ -207,12 +238,22 @@ export default function DashboardMenuPage() {
   async function handleSaveItem() {
     if (!restaurantId || !form.name.trim() || !form.categoryId) return;
 
+    const parsedPrice = Number(form.price);
+    if (
+      form.price.trim() === "" ||
+      !Number.isFinite(parsedPrice) ||
+      parsedPrice < 0
+    ) {
+      setSaveError("Please enter a valid price (0 or more).");
+      return;
+    }
+
     const payload = {
       restaurant_id: restaurantId,
       category_id: form.categoryId,
       name: form.name.trim(),
       description: form.description.trim() || null,
-      price: Number(form.price) || 0,
+      price: parsedPrice,
       image_url: form.imageUrl.trim() || null,
       available: form.available,
     };
@@ -220,14 +261,28 @@ export default function DashboardMenuPage() {
     let itemId = editingItemId;
 
     if (itemId) {
-      await supabase.from("menu_items").update(payload).eq("id", itemId);
+      const { error } = await supabase
+        .from("menu_items")
+        .update(payload)
+        .eq("id", itemId);
+
+      if (error) {
+        setSaveError("Could not save item. Please try again.");
+        return;
+      }
     } else {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("menu_items")
         .insert({ ...payload, sort_order: items.length + 1 })
         .select("id")
         .single();
-      itemId = data?.id ?? null;
+
+      if (error || !data) {
+        setSaveError("Could not save item. Please try again.");
+        return;
+      }
+
+      itemId = data.id;
     }
 
     if (!itemId) return;
@@ -236,32 +291,62 @@ export default function DashboardMenuPage() {
     // re-insert, rather than diffing. Historical orders snapshot their
     // own size/addon name+price at order time, so this never touches
     // anything already billed.
-    await supabase.from("menu_item_sizes").delete().eq("menu_item_id", itemId);
+    const { error: clearSizesError } = await supabase
+      .from("menu_item_sizes")
+      .delete()
+      .eq("menu_item_id", itemId);
+
+    if (clearSizesError) {
+      setSaveError("Item saved, but sizes could not be updated.");
+      return;
+    }
 
     const cleanSizes = form.sizes.filter((s) => s.name.trim());
     if (cleanSizes.length > 0) {
-      await supabase.from("menu_item_sizes").insert(
-        cleanSizes.map((s, i) => ({
-          menu_item_id: itemId,
-          name: s.name.trim(),
-          price: s.price,
-          sort_order: i + 1,
-        })),
-      );
+      const { error: sizesError } = await supabase
+        .from("menu_item_sizes")
+        .insert(
+          cleanSizes.map((s, i) => ({
+            menu_item_id: itemId,
+            name: s.name.trim(),
+            price: s.price,
+            sort_order: i + 1,
+          })),
+        );
+
+      if (sizesError) {
+        setSaveError("Item saved, but sizes could not be updated.");
+        return;
+      }
     }
 
-    await supabase.from("menu_item_addons").delete().eq("menu_item_id", itemId);
+    const { error: clearAddonsError } = await supabase
+      .from("menu_item_addons")
+      .delete()
+      .eq("menu_item_id", itemId);
+
+    if (clearAddonsError) {
+      setSaveError("Item saved, but add-ons could not be updated.");
+      return;
+    }
 
     const cleanAddons = form.addons.filter((a) => a.name.trim());
     if (cleanAddons.length > 0) {
-      await supabase.from("menu_item_addons").insert(
-        cleanAddons.map((a, i) => ({
-          menu_item_id: itemId,
-          name: a.name.trim(),
-          price: a.price,
-          sort_order: i + 1,
-        })),
-      );
+      const { error: addonsError } = await supabase
+        .from("menu_item_addons")
+        .insert(
+          cleanAddons.map((a, i) => ({
+            menu_item_id: itemId,
+            name: a.name.trim(),
+            price: a.price,
+            sort_order: i + 1,
+          })),
+        );
+
+      if (addonsError) {
+        setSaveError("Item saved, but add-ons could not be updated.");
+        return;
+      }
     }
 
     setEditorOpen(false);
@@ -269,16 +354,29 @@ export default function DashboardMenuPage() {
   }
 
   async function handleDeleteItem(id: string) {
-    await supabase.from("menu_items").delete().eq("id", id);
+    const { error } = await supabase.from("menu_items").delete().eq("id", id);
+
     setConfirmingDeleteItemId(null);
+
+    if (error) {
+      setSaveError("Could not delete item. Please try again.");
+      return;
+    }
+
     loadData();
   }
 
   async function handleToggleAvailability(item: MenuItemRow) {
-    await supabase
+    const { error } = await supabase
       .from("menu_items")
       .update({ available: !item.available })
       .eq("id", item.id);
+
+    if (error) {
+      setSaveError("Could not update availability. Please try again.");
+      return;
+    }
+
     loadData();
   }
 
@@ -325,6 +423,12 @@ export default function DashboardMenuPage() {
               <Bell size={16} />
             </button>
           </header>
+
+          {saveError && (
+            <div className="mx-6 mt-4 rounded-xl border border-red-400/20 bg-red-950/40 px-4 py-3 text-sm text-red-200 md:mx-10">
+              {saveError}
+            </div>
+          )}
 
           <div className="mx-auto max-w-375 px-6 py-8 md:px-10">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
