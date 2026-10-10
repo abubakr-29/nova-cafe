@@ -6,7 +6,7 @@ import { Check, Users, X } from "lucide-react";
 import type { Order } from "@/types/order";
 import type { TableSession } from "@/types/session";
 import { calculateBill, calculateGuestShares } from "@/lib/bill";
-import { useRestaurantData } from "@/lib/restaurant-data-context";
+import { useCustomerData } from "@/lib/customer-data-context";
 
 type BillViewProps = {
   session: TableSession;
@@ -21,7 +21,7 @@ export default function BillView({
   onClose,
   onPay,
 }: BillViewProps) {
-  const { taxRate } = useRestaurantData();
+  const { taxRate } = useCustomerData();
   const [view, setView] = useState<"overview" | "split">("overview");
   const [splitMode, setSplitMode] = useState<"equal" | "itemized">("equal");
 

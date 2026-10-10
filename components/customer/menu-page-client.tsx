@@ -18,9 +18,9 @@ import {
   updateCartItemQuantity,
 } from "@/lib/cart";
 import {
-  RestaurantDataProvider,
-  useRestaurantData,
-} from "@/lib/restaurant-data-context";
+  CustomerDataProvider,
+  useCustomerData,
+} from "@/lib/customer-data-context";
 import BillView from "@/components/customer/bill-view";
 import GuestGate from "@/components/customer/guest-gate";
 import type { TableGuest } from "@/types/session";
@@ -38,9 +38,9 @@ export default function MenuPageClient({
   tableId,
 }: MenuPageClientProps) {
   return (
-    <RestaurantDataProvider restaurantSlug={restaurantSlug} tableId={tableId}>
+    <CustomerDataProvider restaurantSlug={restaurantSlug} tableId={tableId}>
       <MenuPage tableId={tableId} />
-    </RestaurantDataProvider>
+    </CustomerDataProvider>
   );
 }
 
@@ -78,7 +78,7 @@ function MenuPage({ tableId }: { tableId: string }) {
     cancelOrderAsCustomer,
     requestBillAsCustomer,
     confirmPaymentAsCustomer,
-  } = useRestaurantData();
+  } = useCustomerData();
 
   const categories = useMemo(
     () => ["All", ...menuCategories.map((category) => category.name)],

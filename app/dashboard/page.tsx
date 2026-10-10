@@ -9,7 +9,7 @@ import type { RestaurantTable } from "@/types/table";
 import OrderQueue from "@/components/orders/order-queue";
 import TableSessionDrawer from "@/components/dashboard/table-session";
 import BillSheet from "@/components/dashboard/bill-sheet";
-import { useRestaurantData } from "@/lib/restaurant-data-context";
+import { useStaffData } from "@/lib/staff-data-context";
 import OrderValidationPanel from "@/components/orders/order-validation-panel";
 
 function getGreeting() {
@@ -50,7 +50,7 @@ export default function DashboardPage() {
     validateOrder,
     closeTableSession,
     updateSessionGuestCount,
-  } = useRestaurantData();
+  } = useStaffData();
 
   const [selectedTableId, setSelectedTableId] = useState<string | null>(
     "table-07",

@@ -7,7 +7,7 @@ import type { Order } from "@/types/order";
 import type { TableSession } from "@/types/session";
 
 import { calculateBill, calculateGuestShares } from "@/lib/bill";
-import { useRestaurantData } from "@/lib/restaurant-data-context";
+import { useStaffData } from "@/lib/staff-data-context";
 
 type BillSheetProps = {
   session: TableSession | null;
@@ -22,7 +22,7 @@ export default function BillSheet({
   onClose,
   onMarkPaid,
 }: BillSheetProps) {
-  const { taxRate } = useRestaurantData();
+  const { taxRate } = useStaffData();
   const [splitMode, setSplitMode] = useState<"equal" | "itemized">("equal");
 
   if (!session) {

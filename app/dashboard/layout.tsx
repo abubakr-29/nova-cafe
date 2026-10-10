@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import { RestaurantDataProvider } from "@/lib/restaurant-data-context";
+import { StaffDataProvider } from "@/lib/staff-data-context";
 
 const baseNavItems = [
   { href: "/dashboard", icon: LayoutGrid, label: "Overview" },
@@ -69,7 +69,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const navItems = isOwner ? [...baseNavItems, staffNavItem] : baseNavItems;
 
   return (
-    <RestaurantDataProvider>
+    <StaffDataProvider>
       <main className="h-screen overflow-hidden bg-[#0b0b0d] text-[#f5f2ea]">
         <div className="flex h-screen">
           {/* Sidebar — desktop */}
@@ -203,7 +203,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </main>
-    </RestaurantDataProvider>
+    </StaffDataProvider>
   );
 }
 
