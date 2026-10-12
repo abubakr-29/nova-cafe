@@ -12,7 +12,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { Order, OrderStatus } from "@/types/order";
 import type { TableSession } from "@/types/session";
-import type { RestaurantTable } from "@/types/table";
+import type { RestaurantTable, TablePosition, TableShape } from "@/types/table";
 
 // STAFF-ONLY data layer — used by the authenticated /dashboard. Kept
 // separate from the customer data layer (lib/customer-data-context.tsx)
@@ -137,10 +137,26 @@ async function fetchOrders(
   }));
 }
 
+export type NewTableInput = {
+  name: string;
+  seats: number;
+  shape: TableShape;
+  position: TablePosition;
+};
+
+export type TablePatch = {
+  name?: string;
+  seats?: number;
+  shape?: TableShape;
+};
+
+type WriteResult = { error?: string };
+
 type StaffDataContextValue = {
   loading: boolean;
   restaurantId: string | null;
   restaurantName: string;
+  restaurantSlug: string;
   taxRate: number;
   orders: Order[];
   sessions: TableSession[];
@@ -156,6 +172,12 @@ type StaffDataContextValue = {
     sessionId: string,
     guestCount: number,
   ) => Promise<void>;
+
+  // Table management. Unlike the writes above these report failures, since
+  // they can legitimately fail (duplicate name, table has order history).
+  addTables: (tables: NewTableInput[]) => Promise<WriteResult>;
+  updateTable: (tableId: string, patch: TablePatch) => Promise<WriteResult>;
+  deleteTable: (tableId: string) => Promise<WriteResult>;
 };
 
 const StaffDataContext = createContext<StaffDataContextValue | null>(null);
@@ -164,6 +186,7 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => createClient());
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState("");
+  const [restaurantSlug, setRestaurantSlug] = useState("");
   const [taxRate, setTaxRate] = useState(0);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -209,7 +232,7 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
 
       const { data: restaurant } = await supabase
         .from("restaurants")
-        .select("id, name, tax_rate")
+        .select("id, name, slug, tax_rate")
         .eq("id", rid)
         .single();
 
@@ -223,6 +246,7 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
 
       setRestaurantId(restaurant.id);
       setRestaurantName(restaurant.name);
+      setRestaurantSlug(restaurant.slug);
       setTaxRate(restaurant.tax_rate);
       await loadData(restaurant.id);
       if (!ignore) setLoading(false);
@@ -429,12 +453,91 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
     [supabase, sessions, refetch],
   );
 
+  const addTables = useCallback(
+    async (inputs: NewTableInput[]): Promise<WriteResult> => {
+      if (!restaurantId) return { error: "No restaurant loaded." };
+      if (inputs.length === 0) return {};
+
+      const { error } = await supabase.from("restaurant_tables").insert(
+        inputs.map((t) => ({
+          restaurant_id: restaurantId,
+          name: t.name,
+          seats: t.seats,
+          shape: t.shape,
+          status: "available",
+          position_x: t.position.x,
+          position_y: t.position.y,
+          position_width: t.position.width,
+          position_height: t.position.height,
+        })),
+      );
+
+      if (error) return { error: error.message };
+
+      await refetch();
+      return {};
+    },
+    [supabase, restaurantId, refetch],
+  );
+
+  const updateTable = useCallback(
+    async (tableId: string, patch: TablePatch): Promise<WriteResult> => {
+      if (!restaurantId) return { error: "No restaurant loaded." };
+
+      const { data, error } = await supabase
+        .from("restaurant_tables")
+        .update(patch)
+        .eq("id", tableId)
+        .eq("restaurant_id", restaurantId)
+        .select("id");
+
+      if (error) return { error: error.message };
+      if (!data || data.length === 0) return { error: "Table not found." };
+
+      await refetch();
+      return {};
+    },
+    [supabase, restaurantId, refetch],
+  );
+
+  const deleteTable = useCallback(
+    async (tableId: string): Promise<WriteResult> => {
+      if (!restaurantId) return { error: "No restaurant loaded." };
+
+      const { data, error } = await supabase
+        .from("restaurant_tables")
+        .delete()
+        .eq("id", tableId)
+        .eq("restaurant_id", restaurantId)
+        .select("id");
+
+      if (error) {
+        // 23503 = foreign key violation: orders / sessions still reference it.
+        return {
+          error:
+            error.code === "23503"
+              ? "This table has order history, so it can't be deleted. Rename it instead."
+              : error.message,
+        };
+      }
+
+      if (!data || data.length === 0) return { error: "Table not found." };
+
+      // Realtime can't deliver DELETE events through a column filter, so
+      // refresh explicitly rather than waiting for the subscription.
+      await refetch();
+      return {};
+    },
+    [supabase, restaurantId, refetch],
+  );
+
   return (
     <StaffDataContext.Provider
       value={{
         loading,
         restaurantId,
         restaurantName,
+        restaurantSlug,
         taxRate,
         orders,
         sessions,
@@ -446,6 +549,9 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
         markSessionPaid,
         closeTableSession,
         updateSessionGuestCount,
+        addTables,
+        updateTable,
+        deleteTable,
       }}
     >
       {children}

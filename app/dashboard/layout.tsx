@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   LogOut,
   Menu as MenuIcon,
+  QrCode,
   Settings,
   User,
   X,
@@ -19,6 +20,12 @@ const baseNavItems = [
   { href: "/dashboard", icon: LayoutGrid, label: "Floor & orders" },
   { href: "/dashboard/menu", icon: MenuIcon, label: "Menu" },
 ];
+
+const tablesNavItem = {
+  href: "/dashboard/tables",
+  icon: QrCode,
+  label: "Tables",
+};
 
 const staffNavItem = { href: "/dashboard/staff", icon: User, label: "Staff" };
 
@@ -37,7 +44,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { loading, restaurantId, restaurantName } = useStaffData();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -63,7 +70,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
         .eq("id", user.id)
         .single();
 
-      if (!ignore) setIsOwner(profile?.role === "owner");
+      if (!ignore) setRole(profile?.role ?? null);
     }
 
     checkRole();
@@ -73,7 +80,14 @@ function DashboardShell({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const navItems = isOwner ? [...baseNavItems, staffNavItem] : baseNavItems;
+  const isOwner = role === "owner";
+  const canManageTables = role === "owner" || role === "manager";
+
+  const navItems = [
+    ...baseNavItems,
+    ...(canManageTables ? [tablesNavItem] : []),
+    ...(isOwner ? [staffNavItem] : []),
+  ];
 
   // "/dashboard" only matches itself; every other item also matches its
   // sub-paths, so e.g. /dashboard/menu/anything still highlights Menu.
@@ -90,10 +104,10 @@ function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <main className="h-screen overflow-hidden bg-[#0b0b0d] text-[#f5f2ea]">
-      <div className="flex h-screen">
+    <main className="h-screen overflow-hidden bg-[#0b0b0d] text-[#f5f2ea] print:h-auto print:overflow-visible print:bg-white print:text-black">
+      <div className="flex h-screen print:block print:h-auto">
         {/* Sidebar — desktop */}
-        <aside className="hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-white/[0.07] bg-[#0d0d10] px-5 py-7 lg:flex lg:h-screen">
+        <aside className="hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-white/[0.07] bg-[#0d0d10] px-5 py-7 lg:flex lg:h-screen print:hidden">
           <div className="px-3">
             <p className="text-[10px] uppercase tracking-[0.3em] text-white/35">
               Dashboard
@@ -135,7 +149,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Mobile top bar */}
-        <div className="fixed inset-x-0 top-0 z-90 flex h-16 items-center justify-between border-b border-white/[0.07] bg-[#0d0d10]/95 px-5 backdrop-blur-md lg:hidden">
+        <div className="fixed inset-x-0 top-0 z-90 flex h-16 items-center justify-between border-b border-white/[0.07] bg-[#0d0d10]/95 px-5 backdrop-blur-md lg:hidden print:hidden">
           <div className="min-w-0">
             <p className="text-[9px] uppercase tracking-[0.3em] text-white/35">
               Dashboard
@@ -222,7 +236,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
         )}
 
         {/* Main */}
-        <div className="min-w-0 flex-1 overflow-y-auto pt-16 lg:pt-0">
+        <div className="min-w-0 flex-1 overflow-y-auto pt-16 lg:pt-0 print:overflow-visible print:pt-0">
           {children}
         </div>
       </div>

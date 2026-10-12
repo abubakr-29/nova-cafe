@@ -71,3 +71,15 @@ body {
 .nova-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* Printing (e.g. the table QR sheet): plain white page, sensible margins. */
+@media print {
+  @page {
+    margin: 10mm;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+}
