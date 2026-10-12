@@ -40,6 +40,7 @@ function getFormattedToday() {
 
 export default function DashboardPage() {
   const {
+    restaurantName,
     orders,
     sessions,
     tables,
@@ -52,9 +53,7 @@ export default function DashboardPage() {
     updateSessionGuestCount,
   } = useStaffData();
 
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(
-    "table-07",
-  );
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [sessionTableId, setSessionTableId] = useState<string | null>(null);
   const [billOpen, setBillOpen] = useState(false);
 
@@ -195,7 +194,7 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="flex h-20 items-center justify-between border-b border-white/[0.07] px-6 md:px-10">
         <div>
-          <p className="text-xs text-white/25">NOVA Café</p>
+          <p className="text-xs text-white/25">{restaurantName}</p>
 
           <p className="mt-1 text-sm text-white/60">Restaurant dashboard</p>
         </div>

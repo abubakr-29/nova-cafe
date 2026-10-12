@@ -17,6 +17,7 @@ type CartDrawerProps = {
   onRemove: (cartItemId: string) => void;
   onPlaceOrder: () => void;
   submitting?: boolean;
+  tableName: string;
 };
 
 export default function CartDrawer({
@@ -27,6 +28,7 @@ export default function CartDrawer({
   onQuantityChange,
   onRemove,
   onPlaceOrder,
+  tableName,
   submitting = false,
 }: CartDrawerProps) {
   useEffect(() => {
@@ -83,7 +85,7 @@ export default function CartDrawer({
 
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-white/30">
-                Table 07
+                {tableName}
               </p>
 
               <h2 className="mt-1 text-lg font-medium text-white">
@@ -188,7 +190,7 @@ export default function CartDrawer({
                   </p>
                 </div>
 
-                <p className="text-xs text-white/25">Table 07</p>
+                <p className="text-xs text-white/25">{tableName}</p>
               </div>
             </div>
 

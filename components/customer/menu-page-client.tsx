@@ -69,6 +69,7 @@ function MenuPage({ tableId }: { tableId: string }) {
   const {
     loading,
     restaurantId,
+    restaurantName,
     orders,
     sessions,
     menuItems,
@@ -249,10 +250,10 @@ function MenuPage({ tableId }: { tableId: string }) {
         <header className="flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-white/40">
-              NOVA
+              Welcome to
             </p>
 
-            <h1 className="mt-1 text-xl font-medium">Café</h1>
+            <h1 className="mt-1 text-xl font-medium">{restaurantName}</h1>
           </div>
 
           <button className="rounded-full border border-white/10 px-4 py-2 text-sm text-white/60 transition hover:bg-white/5">
@@ -451,6 +452,7 @@ function MenuPage({ tableId }: { tableId: string }) {
         onRemove={removeFromCart}
         onPlaceOrder={handlePlaceOrder}
         submitting={isPlacingOrder}
+        tableName={currentTable.name}
       />
 
       {liveCurrentOrder && (
@@ -484,8 +486,7 @@ function NotFoundScreen({
 }) {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#0b0b0d] px-6 text-center text-[#f5f2ea]">
-      <p className="text-xs uppercase tracking-[0.3em] text-white/40">NOVA</p>
-      <h1 className="mt-4 text-2xl font-medium">{title}</h1>
+      <h1 className="text-2xl font-medium">{title}</h1>
       <p className="mt-3 max-w-sm text-sm leading-6 text-white/40">{message}</p>
     </main>
   );

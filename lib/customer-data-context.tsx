@@ -240,6 +240,7 @@ async function fetchCustomerView(
 type CustomerDataContextValue = {
   loading: boolean;
   restaurantId: string | null;
+  restaurantName: string;
   taxRate: number;
   orders: Order[];
   sessions: TableSession[];
@@ -274,6 +275,7 @@ export function CustomerDataProvider({
 }) {
   const [supabase] = useState(() => createClient());
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [restaurantName, setRestaurantName] = useState("");
   const [taxRate, setTaxRate] = useState(0);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -307,7 +309,7 @@ export function CustomerDataProvider({
 
       const { data: restaurant } = await supabase
         .from("restaurants")
-        .select("id, tax_rate")
+        .select("id, name, tax_rate")
         .eq("slug", restaurantSlug)
         .single();
 
@@ -324,6 +326,7 @@ export function CustomerDataProvider({
       }
 
       setRestaurantId(restaurant.id);
+      setRestaurantName(restaurant.name);
       setTaxRate(restaurant.tax_rate);
       await loadData(restaurant.id);
       if (!ignore) setLoading(false);
@@ -341,14 +344,43 @@ export function CustomerDataProvider({
   }, [restaurantId, loadData]);
 
   // Polling in place of Realtime (see CUSTOMER_POLL_INTERVAL_MS above).
+  // Paused while the tab is hidden: a backgrounded page otherwise keeps
+  // hitting the database every few seconds for nobody. On return to the
+  // tab we refetch immediately, then resume the normal cadence.
   useEffect(() => {
     if (!restaurantId) return;
 
-    const interval = setInterval(() => {
-      refetch();
-    }, CUSTOMER_POLL_INTERVAL_MS);
+    let interval: ReturnType<typeof setInterval> | null = null;
 
-    return () => clearInterval(interval);
+    const start = () => {
+      if (interval !== null) return;
+      interval = setInterval(() => {
+        refetch();
+      }, CUSTOMER_POLL_INTERVAL_MS);
+    };
+
+    const stop = () => {
+      if (interval === null) return;
+      clearInterval(interval);
+      interval = null;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refetch();
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [restaurantId, refetch]);
 
   const placeOrder = useCallback(
@@ -434,6 +466,7 @@ export function CustomerDataProvider({
       value={{
         loading,
         restaurantId,
+        restaurantName,
         taxRate,
         orders,
         sessions,

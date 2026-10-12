@@ -140,6 +140,7 @@ async function fetchOrders(
 type StaffDataContextValue = {
   loading: boolean;
   restaurantId: string | null;
+  restaurantName: string;
   taxRate: number;
   orders: Order[];
   sessions: TableSession[];
@@ -162,6 +163,7 @@ const StaffDataContext = createContext<StaffDataContextValue | null>(null);
 export function StaffDataProvider({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => createClient());
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [restaurantName, setRestaurantName] = useState("");
   const [taxRate, setTaxRate] = useState(0);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -207,7 +209,7 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
 
       const { data: restaurant } = await supabase
         .from("restaurants")
-        .select("id, tax_rate")
+        .select("id, name, tax_rate")
         .eq("id", rid)
         .single();
 
@@ -220,6 +222,7 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
       }
 
       setRestaurantId(restaurant.id);
+      setRestaurantName(restaurant.name);
       setTaxRate(restaurant.tax_rate);
       await loadData(restaurant.id);
       if (!ignore) setLoading(false);
@@ -300,7 +303,8 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
           filter: `id=eq.${restaurantId}`,
         },
         (payload) => {
-          const updated = payload.new as { tax_rate: number };
+          const updated = payload.new as { name: string; tax_rate: number };
+          setRestaurantName(updated.name);
           setTaxRate(updated.tax_rate);
         },
       )
@@ -430,6 +434,7 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
       value={{
         loading,
         restaurantId,
+        restaurantName,
         taxRate,
         orders,
         sessions,
