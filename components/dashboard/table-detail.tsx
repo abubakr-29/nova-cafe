@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Bell,
   Check,
@@ -9,6 +10,14 @@ import {
   Utensils,
 } from "lucide-react";
 
+import {
+  bookingPhase,
+  defaultBookingTime,
+  formatBookingTime,
+  parseLocalInput,
+  toLocalInputValue,
+  useNow,
+} from "@/lib/reservations";
 import type { RestaurantTable } from "@/types/table";
 
 type TableDetailProps = {
@@ -18,6 +27,12 @@ type TableDetailProps = {
   paid: boolean;
   onRequestBill: (tableId: string) => void;
   onFreeTable: (tableId: string) => void;
+  onReserve: (
+    tableId: string,
+    reservedFor: string,
+    note: string,
+  ) => Promise<{ error?: string }>;
+  onClearReservation: (tableId: string) => Promise<{ error?: string }>;
 };
 
 const statusLabels = {
@@ -34,7 +49,11 @@ export default function TableDetail({
   paid,
   onRequestBill,
   onFreeTable,
+  onReserve,
+  onClearReservation,
 }: TableDetailProps) {
+  const now = useNow();
+
   if (!table) {
     return (
       <aside className="flex min-h-130 flex-col items-center justify-center rounded-4xl border border-white/8 bg-[#111114] px-8 text-center">
@@ -116,7 +135,19 @@ export default function TableDetail({
 
             <p className="mt-4 text-sm text-white/50">Table is reserved</p>
 
-            <p className="mt-2 text-xs text-white/25">
+            {table.reservedFor && (
+              <p className="mt-3 text-xs text-blue-100/80">
+                Booked for {formatBookingTime(table.reservedFor, now)}
+              </p>
+            )}
+
+            {table.reservationNote && (
+              <p className="mt-2 max-w-full wrap-break-word rounded-xl bg-blue-300/10 px-3 py-1.5 text-xs text-blue-100/80">
+                {table.reservationNote}
+              </p>
+            )}
+
+            <p className="mt-3 text-xs text-white/25">
               Guests haven&apos;t been seated yet.
             </p>
           </div>
@@ -254,6 +285,214 @@ export default function TableDetail({
           </div>
         </div>
       )}
+
+      {/* Booking */}
+      <div className="border-t border-white/8 p-6">
+        <BookingControls
+          // Reset the form when this table or its booking changes.
+          key={`${table.id}:${table.reservedFor ?? ""}`}
+          reservedFor={table.reservedFor}
+          note={table.reservationNote}
+          now={now}
+          occupied={table.status === "occupied" || table.status === "attention"}
+          onReserve={(reservedFor, note) =>
+            onReserve(table.id, reservedFor, note)
+          }
+          onClear={() => onClearReservation(table.id)}
+        />
+      </div>
     </aside>
+  );
+}
+
+function BookingControls({
+  reservedFor,
+  note,
+  now,
+  occupied,
+  onReserve,
+  onClear,
+}: {
+  reservedFor?: string;
+  note?: string;
+  now: number;
+  occupied: boolean;
+  onReserve: (reservedFor: string, note: string) => Promise<{ error?: string }>;
+  onClear: () => Promise<{ error?: string }>;
+}) {
+  const phase = bookingPhase(reservedFor, now);
+  const hasBooking = phase === "upcoming" || phase === "holding";
+
+  const [editing, setEditing] = useState(false);
+  const [when, setWhen] = useState(() => defaultBookingTime(Date.now()));
+  const [guestNote, setGuestNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(action: () => Promise<{ error?: string }>) {
+    if (busy) return;
+
+    setBusy(true);
+    setError(null);
+
+    const result = await action();
+
+    setBusy(false);
+
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setEditing(false);
+    }
+  }
+
+  function handleSave() {
+    const picked = parseLocalInput(when);
+
+    if (Number.isNaN(picked)) {
+      setError("Please pick a date and time.");
+      return;
+    }
+
+    // Allow "right now" (the picker only has minute precision).
+    if (picked < Date.now() - 60_000) {
+      setError("That time has already passed.");
+      return;
+    }
+
+    run(() => onReserve(new Date(picked).toISOString(), guestNote));
+  }
+
+  return (
+    <div>
+      <p className="mb-3 text-[10px] uppercase tracking-[0.22em] text-white/25">
+        Booking
+      </p>
+
+      {hasBooking && reservedFor ? (
+        <div>
+          <div className="rounded-2xl border border-blue-300/20 bg-blue-300/6 px-4 py-3">
+            <p className="text-xs text-blue-100/85">
+              Booked for {formatBookingTime(reservedFor, now)}
+            </p>
+
+            {note && (
+              <p className="mt-1 wrap-break-word text-xs text-blue-100/60">
+                {note}
+              </p>
+            )}
+
+            {phase === "holding" && occupied && (
+              <p className="mt-2 text-[11px] text-[#d7a45a]">
+                Guests are due, but this table is still occupied.
+              </p>
+            )}
+          </div>
+
+          <div
+            className={`mt-3 grid gap-2 ${
+              phase === "holding" && !occupied ? "grid-cols-2" : "grid-cols-1"
+            }`}
+          >
+            {phase === "holding" && !occupied && (
+              <button
+                type="button"
+                onClick={() => run(onClear)}
+                disabled={busy}
+                title="Opens the table so the guests can scan and order"
+                className="rounded-full bg-[#f5f2ea] py-3 text-xs font-medium text-[#0b0b0d] transition hover:scale-[1.01] disabled:opacity-50"
+              >
+                {busy ? "Opening…" : "Guests arrived"}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => run(onClear)}
+              disabled={busy}
+              className="rounded-full border border-white/10 py-3 text-xs text-white/55 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+            >
+              Cancel booking
+            </button>
+          </div>
+
+          {phase === "holding" && !occupied && (
+            <p className="mt-3 text-[10px] leading-4 text-white/25">
+              Walk-ins can&apos;t order at this table until you tap Guests
+              arrived or the booking passes.
+            </p>
+          )}
+        </div>
+      ) : editing ? (
+        <div>
+          <label className="block">
+            <span className="mb-1.5 block text-[10px] text-white/35">
+              Date and time
+            </span>
+            <input
+              type="datetime-local"
+              value={when}
+              min={toLocalInputValue(now)}
+              onChange={(e) => setWhen(e.target.value)}
+              className="h-11 w-full rounded-xl border border-white/10 bg-white/3 px-3 text-xs text-white outline-none transition scheme-dark focus:border-white/25"
+            />
+          </label>
+
+          <label className="mt-3 block">
+            <span className="mb-1.5 block text-[10px] text-white/35">
+              Name and party size (optional)
+            </span>
+            <input
+              value={guestNote}
+              onChange={(e) => setGuestNote(e.target.value)}
+              maxLength={80}
+              placeholder="e.g. Rahul, 4 people"
+              className="h-11 w-full rounded-xl border border-white/10 bg-white/3 px-3 text-xs text-white outline-none transition placeholder:text-white/25 focus:border-white/25"
+            />
+          </label>
+
+          <p className="mt-2 text-[10px] text-white/25">
+            The table is held from 30 minutes before to 30 minutes after this
+            time. Please don&apos;t add phone numbers.
+          </p>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false);
+                setError(null);
+              }}
+              disabled={busy}
+              className="rounded-full border border-white/10 py-3 text-xs text-white/55 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={busy}
+              className="rounded-full bg-[#f5f2ea] py-3 text-xs font-medium text-[#0b0b0d] transition hover:scale-[1.01] disabled:opacity-50"
+            >
+              {busy ? "Saving…" : "Save booking"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setWhen(defaultBookingTime(Date.now()));
+            setEditing(true);
+          }}
+          className="w-full rounded-full border border-white/10 py-3 text-xs text-white/55 transition hover:bg-white/5 hover:text-white"
+        >
+          Add booking
+        </button>
+      )}
+
+      {error && <p className="mt-3 text-xs text-red-300/80">{error}</p>}
+    </div>
   );
 }

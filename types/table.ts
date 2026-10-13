@@ -29,6 +29,11 @@ export type RestaurantTable = {
   shape: TableShape;
   position: TablePosition;
 
+  reservedFor?: string;
+  reservationNote?: string;
+
+  onHold?: boolean;
+
   sessionId?: string;
   guestCount?: number;
 

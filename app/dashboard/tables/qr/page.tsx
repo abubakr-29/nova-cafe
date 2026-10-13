@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft, Printer, TriangleAlert } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -9,16 +9,44 @@ import { useStaffData } from "@/lib/staff-data-context";
 import { tableUrl, useSiteUrl } from "@/lib/site-url";
 import { compareTableNames } from "@/lib/table-layout";
 
+const CARDS_PER_PAGE = 6;
+
 export default function TableQrSheetPage() {
   const { loading, restaurantName, restaurantSlug, tables } = useStaffData();
   const site = useSiteUrl();
+
+  // We store what is EXCLUDED rather than what is selected, so everything
+  // starts selected and a table added later is selected automatically.
+  const [excluded, setExcluded] = useState<Set<string>>(() => new Set());
 
   const sortedTables = useMemo(
     () => [...tables].sort((a, b) => compareTableNames(a.name, b.name)),
     [tables],
   );
 
+  const selectedCount = sortedTables.filter((t) => !excluded.has(t.id)).length;
+  const pageCount = Math.ceil(selectedCount / CARDS_PER_PAGE);
+
+  function toggle(tableId: string) {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(tableId)) next.delete(tableId);
+      else next.add(tableId);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setExcluded(new Set());
+  }
+
+  function selectNone() {
+    setExcluded(new Set(sortedTables.map((t) => t.id)));
+  }
+
   function handlePrint() {
+    if (selectedCount === 0) return;
+
     // A QR code printed from localhost (or from an unconfigured preview
     // address) will not work for customers. Make that a conscious choice.
     if (site.isLocal || !site.isConfigured) {
@@ -50,21 +78,50 @@ export default function TableQrSheetPage() {
             </Link>
             <h1 className="text-lg font-medium">Table QR codes</h1>
             <p className="mt-1 text-xs text-white/35">
-              One card per table, six to an A4 page. Print, cut and place each
-              card on its table.
+              Tick the tables you want to print. Cards print six to an A4 page.
             </p>
           </div>
 
           <button
             type="button"
             onClick={handlePrint}
-            disabled={loading || sortedTables.length === 0}
-            className="flex items-center gap-2 rounded-full bg-[#f5f2ea] px-4 py-2.5 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+            disabled={loading || selectedCount === 0}
+            className="flex items-center gap-2 rounded-full bg-[#f5f2ea] px-4 py-2.5 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Printer size={15} />
-            Print
+            {selectedCount === 0
+              ? "Print"
+              : `Print ${selectedCount} ${selectedCount === 1 ? "card" : "cards"}`}
           </button>
         </div>
+
+        {sortedTables.length > 0 && (
+          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+            <span className="text-white/50">
+              {selectedCount} of {sortedTables.length} selected
+              {pageCount > 0 &&
+                ` · ${pageCount} ${pageCount === 1 ? "page" : "pages"}`}
+            </span>
+
+            <button
+              type="button"
+              onClick={selectAll}
+              disabled={selectedCount === sortedTables.length}
+              className="text-white/40 underline-offset-4 transition hover:text-white/80 hover:underline disabled:opacity-30 disabled:hover:no-underline"
+            >
+              Select all
+            </button>
+
+            <button
+              type="button"
+              onClick={selectNone}
+              disabled={selectedCount === 0}
+              className="text-white/40 underline-offset-4 transition hover:text-white/80 hover:underline disabled:opacity-30 disabled:hover:no-underline"
+            >
+              Select none
+            </button>
+          </div>
+        )}
 
         {(site.isLocal || !site.isConfigured) && site.url && (
           <div className="mt-5 flex gap-3 rounded-2xl border border-[#d7a45a]/30 bg-[#d7a45a]/[0.07] p-4 text-xs leading-relaxed text-[#d7a45a]">
@@ -103,13 +160,26 @@ export default function TableQrSheetPage() {
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 print:max-w-none print:grid-cols-2 print:gap-4">
           {sortedTables.map((table) => {
             const url = tableUrl(site.url, restaurantSlug, table.id);
+            const selected = !excluded.has(table.id);
 
             return (
-              <div
+              <label
                 key={table.id}
-                className="break-inside-avoid rounded-2xl border border-black/20 bg-white p-6 text-center text-black"
+                className={`relative block cursor-pointer break-inside-avoid rounded-2xl border bg-white p-6 text-center text-black transition ${
+                  selected
+                    ? "border-black/20"
+                    : "border-black/10 opacity-40 print:hidden"
+                }`}
               >
-                <p className="line-clamp-1 text-[11px] uppercase tracking-[0.25em] text-black/50">
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() => toggle(table.id)}
+                  aria-label={`Print ${table.name}`}
+                  className="absolute left-4 top-4 h-5 w-5 cursor-pointer accent-black print:hidden"
+                />
+
+                <p className="line-clamp-1 px-6 text-[11px] uppercase tracking-[0.25em] text-black/50">
                   {restaurantName}
                 </p>
 
@@ -133,7 +203,7 @@ export default function TableQrSheetPage() {
                 <p className="mt-2 break-all text-[9px] leading-snug text-black/40">
                   {url}
                 </p>
-              </div>
+              </label>
             );
           })}
         </div>

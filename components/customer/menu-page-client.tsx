@@ -234,6 +234,17 @@ function MenuPage({ tableId }: { tableId: string }) {
     );
   }
 
+  // A booking's hold is active and nobody is seated here yet: walk-ins can't
+  // order. (place_order enforces this too; this just explains it up front.)
+  if (currentTable.onHold && !currentSession) {
+    return (
+      <NotFoundScreen
+        title="This table is reserved."
+        message="Please ask a member of staff to seat you."
+      />
+    );
+  }
+
   if (needsGuestGate) {
     return (
       <GuestGate

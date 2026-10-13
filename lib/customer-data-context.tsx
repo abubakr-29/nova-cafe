@@ -125,6 +125,7 @@ async function fetchCustomerView(
       position_y: number;
       position_width: number;
       position_height: number;
+      on_hold?: boolean;
     } | null;
     session: {
       id: string;
@@ -179,6 +180,7 @@ async function fetchCustomerView(
           width: raw.table.position_width,
           height: raw.table.position_height,
         },
+        onHold: raw.table.on_hold ?? false,
       }
     : null;
 

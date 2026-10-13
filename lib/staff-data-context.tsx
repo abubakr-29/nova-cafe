@@ -34,7 +34,7 @@ async function fetchTables(
   const { data } = await supabase
     .from("restaurant_tables")
     .select(
-      "id, name, seats, shape, status, position_x, position_y, position_width, position_height",
+      "id, name, seats, shape, status, reservation_note, reserved_for, position_x, position_y, position_width, position_height",
     )
     .eq("restaurant_id", restaurantId);
 
@@ -44,6 +44,8 @@ async function fetchTables(
     seats: t.seats,
     shape: t.shape,
     status: t.status,
+    reservationNote: t.reservation_note ?? undefined,
+    reservedFor: t.reserved_for ?? undefined,
     position: {
       x: t.position_x,
       y: t.position_y,
@@ -178,6 +180,15 @@ type StaffDataContextValue = {
   addTables: (tables: NewTableInput[]) => Promise<WriteResult>;
   updateTable: (tableId: string, patch: TablePatch) => Promise<WriteResult>;
   deleteTable: (tableId: string) => Promise<WriteResult>;
+
+  // Bookings: record when guests are due (the table is only held around that
+  // time), or clear the booking (guests arrived / cancelled).
+  reserveTable: (
+    tableId: string,
+    reservedFor: string,
+    note: string,
+  ) => Promise<WriteResult>;
+  clearReservation: (tableId: string) => Promise<WriteResult>;
 };
 
 const StaffDataContext = createContext<StaffDataContextValue | null>(null);
@@ -531,6 +542,60 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
     [supabase, restaurantId, refetch],
   );
 
+  const reserveTable = useCallback(
+    async (
+      tableId: string,
+      reservedFor: string,
+      note: string,
+    ): Promise<WriteResult> => {
+      if (!restaurantId) return { error: "No restaurant loaded." };
+
+      const when = Date.parse(reservedFor);
+      if (Number.isNaN(when)) {
+        return { error: "Please pick a valid date and time." };
+      }
+
+      // Only the booking columns change. The table's status stays as it is:
+      // a booking only holds the table around its time (see lib/reservations).
+      const { data, error } = await supabase
+        .from("restaurant_tables")
+        .update({
+          reserved_for: new Date(when).toISOString(),
+          reservation_note: note.trim().slice(0, 80) || null,
+        })
+        .eq("id", tableId)
+        .eq("restaurant_id", restaurantId)
+        .select("id");
+
+      if (error) return { error: error.message };
+      if (!data || data.length === 0) return { error: "Table not found." };
+
+      await refetch();
+      return {};
+    },
+    [supabase, restaurantId, refetch],
+  );
+
+  const clearReservation = useCallback(
+    async (tableId: string): Promise<WriteResult> => {
+      if (!restaurantId) return { error: "No restaurant loaded." };
+
+      const { data, error } = await supabase
+        .from("restaurant_tables")
+        .update({ reserved_for: null, reservation_note: null })
+        .eq("id", tableId)
+        .eq("restaurant_id", restaurantId)
+        .select("id");
+
+      if (error) return { error: error.message };
+      if (!data || data.length === 0) return { error: "Table not found." };
+
+      await refetch();
+      return {};
+    },
+    [supabase, restaurantId, refetch],
+  );
+
   return (
     <StaffDataContext.Provider
       value={{
@@ -552,6 +617,8 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
         addTables,
         updateTable,
         deleteTable,
+        reserveTable,
+        clearReservation,
       }}
     >
       {children}

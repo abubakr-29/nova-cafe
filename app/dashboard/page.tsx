@@ -11,6 +11,7 @@ import TableSessionDrawer from "@/components/dashboard/table-session";
 import BillSheet from "@/components/dashboard/bill-sheet";
 import { useStaffData } from "@/lib/staff-data-context";
 import OrderValidationPanel from "@/components/orders/order-validation-panel";
+import { applyBookingHold, useNow } from "@/lib/reservations";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -51,11 +52,16 @@ export default function DashboardPage() {
     validateOrder,
     closeTableSession,
     updateSessionGuestCount,
+    reserveTable,
+    clearReservation,
   } = useStaffData();
 
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [sessionTableId, setSessionTableId] = useState<string | null>(null);
   const [billOpen, setBillOpen] = useState(false);
+
+  // Ticks about once a minute so a booking's hold starts/ends on its own.
+  const now = useNow();
 
   const tablesWithLiveData = useMemo(() => {
     return tables.map((table) => {
@@ -64,7 +70,8 @@ export default function DashboardPage() {
       );
 
       if (!session) {
-        return table;
+        // A free table shows as reserved while a booking's hold is active.
+        return applyBookingHold(table, now);
       }
 
       const sessionOrders = session.orderIds
@@ -88,7 +95,7 @@ export default function DashboardPage() {
         })),
       };
     });
-  }, [tables, sessions, orders]);
+  }, [tables, sessions, orders, now]);
 
   const selectedTable =
     tablesWithLiveData.find((table) => table.id === selectedTableId) ?? null;
@@ -297,6 +304,8 @@ export default function DashboardPage() {
               paid={selectedTable ? paidTableIds.has(selectedTable.id) : false}
               onRequestBill={handleRequestBillForTable}
               onFreeTable={handleFreeTable}
+              onReserve={reserveTable}
+              onClearReservation={clearReservation}
             />
           </div>
         </section>
