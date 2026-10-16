@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Bell, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
 
+import DietDot from "@/components/menu/diet-dot";
+import { formatPrice } from "@/lib/format-price";
+import type { Diet } from "@/lib/menu-import";
+import { useStaffData } from "@/lib/staff-data-context";
+
 import { createClient } from "@/lib/supabase/client";
 
 type Category = { id: string; name: string; sort_order: number };
@@ -18,6 +23,7 @@ type MenuItemRow = {
   price: number;
   image_url: string | null;
   available: boolean;
+  diet: Diet | null;
   category_id: string | null;
   menu_item_sizes: SizeRow[];
   menu_item_addons: AddonRow[];
@@ -30,6 +36,7 @@ type ItemForm = {
   imageUrl: string;
   categoryId: string;
   available: boolean;
+  diet: Diet | "";
   sizes: SizeRow[];
   addons: AddonRow[];
 };
@@ -41,11 +48,13 @@ const emptyForm: ItemForm = {
   imageUrl: "",
   categoryId: "",
   available: true,
+  diet: "",
   sizes: [],
   addons: [],
 };
 
 export default function DashboardMenuPage() {
+  const { restaurantName, restaurantSlug } = useStaffData();
   const [supabase] = useState(() => createClient());
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,7 +105,7 @@ export default function DashboardMenuPage() {
       supabase
         .from("menu_items")
         .select(
-          "id, name, description, price, image_url, available, category_id, sort_order, menu_item_sizes(id, name, price), menu_item_addons(id, name, price)",
+          "id, name, description, price, image_url, available, diet, category_id, sort_order, menu_item_sizes(id, name, price), menu_item_addons(id, name, price)",
         )
         .eq("restaurant_id", rid)
         .order("sort_order"),
@@ -130,7 +139,7 @@ export default function DashboardMenuPage() {
         supabase
           .from("menu_items")
           .select(
-            "id, name, description, price, image_url, available, category_id, sort_order, menu_item_sizes(id, name, price), menu_item_addons(id, name, price)",
+            "id, name, description, price, image_url, available, diet, category_id, sort_order, menu_item_sizes(id, name, price), menu_item_addons(id, name, price)",
           )
           .eq("restaurant_id", rid)
           .order("sort_order"),
@@ -221,6 +230,7 @@ export default function DashboardMenuPage() {
       imageUrl: item.image_url ?? "",
       categoryId: item.category_id ?? "",
       available: item.available,
+      diet: item.diet ?? "",
       sizes: item.menu_item_sizes.map((s) => ({
         id: s.id,
         name: s.name,
@@ -256,6 +266,7 @@ export default function DashboardMenuPage() {
       price: parsedPrice,
       image_url: form.imageUrl.trim() || null,
       available: form.available,
+      diet: form.diet || null,
     };
 
     let itemId = editingItemId;
@@ -411,7 +422,7 @@ export default function DashboardMenuPage() {
         <div className="min-w-0 flex-1">
           <header className="flex h-20 items-center justify-between border-b border-white/[0.07] px-6 md:px-10">
             <div>
-              <p className="text-xs text-white/25">White Cave</p>
+              <p className="text-xs text-white/25">{restaurantName}</p>
               <p className="mt-1 text-sm text-white/60">Menu management</p>
             </div>
 
@@ -447,14 +458,23 @@ export default function DashboardMenuPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={openNewItemEditor}
-                className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
-              >
-                <Plus size={15} />
-                Add item
-              </button>
+              <div className="flex shrink-0 items-center gap-3">
+                <Link
+                  href="/dashboard/menu/import"
+                  className="flex h-12 items-center rounded-full border border-white/10 px-5 text-sm text-white/60 transition hover:bg-white/5 hover:text-white"
+                >
+                  Import menu
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={openNewItemEditor}
+                  className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                >
+                  <Plus size={15} />
+                  Add item
+                </button>
+              </div>
             </div>
 
             {/* Categories */}
@@ -608,12 +628,15 @@ export default function DashboardMenuPage() {
               </div>
             )}
 
-            <Link
-              href="/menu"
-              className="mt-10 inline-block text-blue-400 hover:text-blue-300"
-            >
-              View customer menu
-            </Link>
+            {restaurantSlug && (
+              <Link
+                href={`/menu/${restaurantSlug}`}
+                target="_blank"
+                className="mt-10 inline-block rounded-full border border-white/10 py-4 px-5 text-sm text-white/60 transition hover:bg-white/5 hover:text-white"
+              >
+                View public menu
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -712,6 +735,43 @@ export default function DashboardMenuPage() {
                 />
                 Available to order
               </label>
+
+              <div className="sm:col-span-2">
+                <p className="mb-2 text-sm text-white/60">Veg / non-veg</p>
+
+                <div
+                  role="radiogroup"
+                  aria-label="Veg or non-veg"
+                  className="flex flex-wrap gap-2"
+                >
+                  {(
+                    [
+                      { value: "", label: "Not set" },
+                      { value: "veg", label: "Veg" },
+                      { value: "non_veg", label: "Non-veg" },
+                      { value: "egg", label: "Egg" },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={form.diet === option.value}
+                      onClick={() => setForm({ ...form, diet: option.value })}
+                      className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs transition ${
+                        form.diet === option.value
+                          ? "border-[#f5f2ea] bg-[#f5f2ea] font-medium text-[#0b0b0d]"
+                          : "border-white/10 text-white/55 hover:bg-white/5"
+                      }`}
+                    >
+                      {option.value !== "" && (
+                        <DietDot diet={option.value} className="bg-white" />
+                      )}
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Sizes */}
@@ -866,10 +926,21 @@ function MenuItemCard({
     <div className="rounded-2xl border border-white/[0.07] bg-white/2.5 p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-white/80">
-            {item.name}
+          <p className="flex items-center gap-2 text-sm font-medium text-white/80">
+            <DietDot diet={item.diet} />
+            <span className="truncate">{item.name}</span>
           </p>
-          <p className="mt-1 text-xs text-white/30">₹{item.price}</p>
+          <p className="mt-1 text-xs text-white/30">
+            {item.menu_item_sizes.length > 0
+              ? [...item.menu_item_sizes]
+                  .sort((a, b) => a.price - b.price)
+                  .map(
+                    (size) =>
+                      `${size.name} ${formatPrice(item.price + size.price)}`,
+                  )
+                  .join(" · ")
+              : formatPrice(item.price)}
+          </p>
         </div>
 
         <button
