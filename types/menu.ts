@@ -1,3 +1,5 @@
+import type { Diet } from "@/lib/menu-import";
+
 export type MenuOption = {
   id: string;
   name: string;
@@ -10,9 +12,10 @@ export type MenuItem = {
   description: string;
   price: number;
   category: string;
+  /** The category this item belongs to ("" when it has none). */
+  categoryId: string;
   image: string;
-  popular?: boolean;
-  vegetarian?: boolean;
+  diet?: Diet | null;
   available?: boolean;
   sizes?: MenuOption[];
   addons?: MenuOption[];

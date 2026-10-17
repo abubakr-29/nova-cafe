@@ -4,6 +4,8 @@ import { Minus, Plus, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 
+import DietDot from "@/components/menu/diet-dot";
+import { formatPrice } from "@/lib/format-price";
 import type { MenuItem, MenuOption } from "@/types/menu";
 import type { CartItem } from "@/types/cart";
 import type { TableGuest } from "@/types/session";
@@ -12,6 +14,8 @@ import { MAX_ITEM_QUANTITY } from "@/lib/cart";
 type MenuItemSheetProps = {
   item: MenuItem | null;
   guests: TableGuest[];
+  /** Which guest (1-based) is preselected under "Who's this for?". */
+  defaultGuestIndex?: number;
   onClose: () => void;
   onAdd: (item: CartItem) => void;
 };
@@ -19,6 +23,7 @@ type MenuItemSheetProps = {
 export default function MenuItemSheet({
   item,
   guests,
+  defaultGuestIndex,
   onClose,
   onAdd,
 }: MenuItemSheetProps) {
@@ -31,7 +36,11 @@ export default function MenuItemSheet({
   const [note, setNote] = useState("");
   const [selectedGuestIndex, setSelectedGuestIndex] = useState<
     number | undefined
-  >(guests.length > 0 ? 1 : undefined);
+  >(
+    guests.length > 0
+      ? Math.min(Math.max(defaultGuestIndex ?? 1, 1), guests.length)
+      : undefined,
+  );
 
   useEffect(() => {
     if (!item) return;
@@ -63,6 +72,12 @@ export default function MenuItemSheet({
   }
 
   const currentItem = item;
+
+  // With sizes, the header shows the lowest price ("from ₹250").
+  const sizeExtras = currentItem.sizes?.map((size) => size.price) ?? [];
+  const startingPrice =
+    currentItem.price + (sizeExtras.length > 0 ? Math.min(...sizeExtras) : 0);
+  const hasPriceRange = new Set(sizeExtras).size > 1;
 
   function toggleAddon(addon: MenuOption) {
     setSelectedAddons((current) => {
@@ -120,23 +135,28 @@ export default function MenuItemSheet({
           </button>
         </div>
 
-        {/* Image */}
-        <div className="relative aspect-video overflow-hidden">
-          <Image
-            src={currentItem.image}
-            alt={currentItem.name}
-            fill
-            sizes="(max-width: 768px) 100vw, 672px"
-            className="object-cover"
-          />
+        {/* Image (many items have no photo) */}
+        {currentItem.image && (
+          <div className="relative aspect-video overflow-hidden">
+            <Image
+              src={currentItem.image}
+              alt={currentItem.name}
+              fill
+              sizes="(max-width: 768px) 100vw, 672px"
+              className="object-cover"
+            />
 
-          <div className="absolute inset-0 bg-linear-to-t from-[#151519] via-transparent to-transparent" />
-        </div>
+            <div className="absolute inset-0 bg-linear-to-t from-[#151519] via-transparent to-transparent" />
+          </div>
+        )}
 
         {/* Content */}
-        <div className="px-6 pb-7 pt-2 md:px-8">
+        <div
+          className={`px-6 pb-7 md:px-8 ${currentItem.image ? "pt-2" : "pt-8"}`}
+        >
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-[#d7a45a]">
+            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-[#d7a45a]">
+              <DietDot diet={currentItem.diet} />
               {currentItem.category}
             </p>
 
@@ -146,13 +166,16 @@ export default function MenuItemSheet({
                   {currentItem.name}
                 </h2>
 
-                <p className="mt-3 max-w-lg text-sm leading-6 text-white/45">
-                  {currentItem.description}
-                </p>
+                {currentItem.description && (
+                  <p className="mt-3 max-w-lg text-sm leading-6 text-white/45">
+                    {currentItem.description}
+                  </p>
+                )}
               </div>
 
               <p className="shrink-0 text-lg font-medium">
-                ₹{currentItem.price}
+                {hasPriceRange && "from "}
+                {formatPrice(startingPrice)}
               </p>
             </div>
           </div>
@@ -182,9 +205,7 @@ export default function MenuItemSheet({
                     >
                       <span>{size.name}</span>
 
-                      <span>
-                        {size.price === 0 ? "Included" : `+₹${size.price}`}
-                      </span>
+                      <span>{formatPrice(currentItem.price + size.price)}</span>
                     </button>
                   );
                 })}

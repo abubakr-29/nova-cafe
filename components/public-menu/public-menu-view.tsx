@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 
+import DietDot from "@/components/menu/diet-dot";
 import { formatPrice } from "@/lib/format-price";
 import type { PublicMenuCategory } from "@/lib/public-menu";
 
@@ -146,7 +147,7 @@ export default function PublicMenuView({
                 <nav aria-label="Menu categories">
                   <div
                     ref={chipBarRef}
-                    className="relative -mx-5 flex gap-2 overflow-x-auto px-5 py-3 scrollbar-none [&::-webkit-scrollbar]:hidden"
+                    className="relative -mx-5 flex gap-2 overflow-x-auto px-5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   >
                     {categories.map((category) => {
                       const active = category.id === activeId;
@@ -194,7 +195,7 @@ export default function PublicMenuView({
                     {category.name}
                   </h2>
 
-                  <ul className="mt-2 divide-y divide-white/6">
+                  <ul className="mt-2 divide-y divide-white/[0.06]">
                     {category.items.map((item) => (
                       <li
                         key={item.id}
@@ -203,8 +204,9 @@ export default function PublicMenuView({
                         }`}
                       >
                         <div className="min-w-0">
-                          <p className="wrap-break-word text-[15px]">
-                            {item.name}
+                          <p className="flex items-start gap-2 text-[15px]">
+                            <DietDot diet={item.diet} className="mt-[3px]" />
+                            <span className="wrap-break-word">{item.name}</span>
                           </p>
 
                           {!item.available && (

@@ -1,17 +1,16 @@
 "use client";
 
-import { Search, ShoppingBag, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ShoppingBag } from "lucide-react";
+import { useEffect, useState } from "react";
 
-import MenuCard from "@/components/menu/menu-card";
 import CartDrawer from "@/components/cart/cart-drawer";
+import MenuBrowser from "@/components/menu/menu-browser";
 import type { MenuItem } from "@/types/menu";
 import MenuItemSheet from "@/components/menu/menu-item-sheet";
 import type { CartItem } from "@/types/cart";
 import OrderConfirmation from "@/components/orders/order-confirmation";
 import {
   areCartItemsEquivalent,
-  getCartItemDetails,
   getCartItemUnitPrice,
   MAX_ITEM_QUANTITY,
   removeCartItem,
@@ -45,8 +44,7 @@ export default function MenuPageClient({
 }
 
 function MenuPage({ tableId }: { tableId: string }) {
-  const [activeCategory, setActiveCategory] = useState("All");
-  const [search, setSearch] = useState("");
+  const [orderingFor, setOrderingFor] = useState(1);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
@@ -81,11 +79,6 @@ function MenuPage({ tableId }: { tableId: string }) {
     confirmPaymentAsCustomer,
   } = useCustomerData();
 
-  const categories = useMemo(
-    () => ["All", ...menuCategories.map((category) => category.name)],
-    [menuCategories],
-  );
-
   const currentTable = tables.find((table) => table.id === tableId) ?? null;
 
   const currentSession = currentTable
@@ -109,18 +102,12 @@ function MenuPage({ tableId }: { tableId: string }) {
     ? (orders.find((order) => order.id === currentOrderId) ?? null)
     : null;
 
-  const filteredItems = useMemo(() => {
-    return menuItems.filter((item) => {
-      const matchesCategory =
-        activeCategory === "All" || item.category === activeCategory;
-
-      const matchesSearch =
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.description.toLowerCase().includes(search.toLowerCase());
-
-      return matchesCategory && matchesSearch;
-    });
-  }, [activeCategory, search, menuItems]);
+  // Quick-add orders for whoever is picked under "Ordering for" (always guest 1
+  // when the table has a single guest), exactly like the item sheet does.
+  const activeGuestIndex =
+    displayGuests.length > 0
+      ? Math.min(orderingFor, displayGuests.length)
+      : undefined;
 
   function addToCart(item: CartItem) {
     setCart((current) => {
@@ -154,6 +141,52 @@ function MenuPage({ tableId }: { tableId: string }) {
 
   function changeCartItemQuantity(cartItemId: string, quantity: number) {
     setCart((current) => updateCartItemQuantity(current, cartItemId, quantity));
+  }
+
+  // A "plain" line: no size, no extras, no note, for the guest being ordered for.
+  function plainCartItem(item: MenuItem): CartItem {
+    return {
+      cartItemId: "",
+      menuItemId: item.id,
+      name: item.name,
+      basePrice: item.price,
+      quantity: 1,
+      addons: [],
+      image: item.image,
+      guestIndex: activeGuestIndex,
+    };
+  }
+
+  function findPlainLine(item: MenuItem) {
+    const probe = plainCartItem(item);
+    return cart.find((line) => areCartItemsEquivalent(line, probe));
+  }
+
+  function quickQuantity(item: MenuItem) {
+    return findPlainLine(item)?.quantity ?? 0;
+  }
+
+  function totalQuantity(item: MenuItem) {
+    return cart.reduce(
+      (sum, line) => (line.menuItemId === item.id ? sum + line.quantity : sum),
+      0,
+    );
+  }
+
+  function quickAdd(item: MenuItem) {
+    // Items with sizes or extras need a choice first.
+    if ((item.sizes?.length ?? 0) > 0 || (item.addons?.length ?? 0) > 0) {
+      setSelectedItem(item);
+      return;
+    }
+
+    addToCart({ ...plainCartItem(item), cartItemId: crypto.randomUUID() });
+  }
+
+  function quickRemove(item: MenuItem) {
+    const line = findPlainLine(item);
+
+    if (line) changeCartItemQuantity(line.cartItemId, line.quantity - 1);
   }
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
@@ -254,22 +287,55 @@ function MenuPage({ tableId }: { tableId: string }) {
     );
   }
 
+  const guestPicker =
+    displayGuests.length > 1 ? (
+      <div
+        role="group"
+        aria-label="Ordering for"
+        className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none [&::-webkit-scrollbar]:hidden"
+      >
+        <span className="shrink-0 text-[11px] text-white/35">Ordering for</span>
+
+        {displayGuests.map((guest, index) => {
+          const selected = activeGuestIndex === index + 1;
+
+          return (
+            <button
+              key={guest.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => setOrderingFor(index + 1)}
+              className={`shrink-0 rounded-full border px-3 py-1 text-xs transition ${
+                selected
+                  ? "border-[#d7a45a]/60 bg-[#d7a45a]/10 text-[#d7a45a]"
+                  : "border-white/10 text-white/55 hover:bg-white/5"
+              }`}
+            >
+              {guest.name}
+            </button>
+          );
+        })}
+      </div>
+    ) : null;
+
   return (
     <main className="min-h-screen bg-[#0b0b0d] text-[#f5f2ea]">
-      <div className="mx-auto max-w-7xl px-6 py-8 md:px-10">
+      <div className="mx-auto max-w-2xl">
         {/* Header */}
-        <header className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/40">
+        <header className="flex items-center justify-between px-5 pb-4 pt-6">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
               Welcome to
             </p>
 
-            <h1 className="mt-1 text-xl font-medium">{restaurantName}</h1>
+            <h1 className="mt-1 truncate text-xl font-medium">
+              {restaurantName}
+            </h1>
           </div>
 
-          <button className="rounded-full border border-white/10 px-4 py-2 text-sm text-white/60 transition hover:bg-white/5">
+          <span className="ml-3 shrink-0 rounded-full border border-white/10 px-4 py-2 text-sm text-white/60">
             {currentTable.name}
-          </button>
+          </span>
         </header>
 
         {currentSession?.billRequested &&
@@ -277,7 +343,7 @@ function MenuPage({ tableId }: { tableId: string }) {
             <button
               type="button"
               onClick={() => setBillViewOpen(true)}
-              className="mt-6 flex w-full items-center justify-between rounded-2xl border border-[#d7a45a]/25 bg-[#d7a45a]/8 px-5 py-4 text-left transition hover:bg-[#d7a45a]/12"
+              className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between rounded-2xl border border-[#d7a45a]/25 bg-[#d7a45a]/8 px-5 py-4 text-left transition hover:bg-[#d7a45a]/12"
             >
               <span className="text-xs text-[#d7a45a]">Your bill is ready</span>
               <span className="text-xs font-medium text-[#d7a45a]">
@@ -286,79 +352,16 @@ function MenuPage({ tableId }: { tableId: string }) {
             </button>
           )}
 
-        {/* Hero */}
-        <section className="mt-20">
-          <p className="text-sm uppercase tracking-[0.25em] text-[#d7a45a]">
-            Our menu
-          </p>
-
-          <div className="mt-4 flex flex-col justify-between gap-8 md:flex-row md:items-end">
-            <h2 className="max-w-3xl text-5xl font-medium tracking-[-0.04em] md:text-6xl">
-              What are you
-              <br />
-              craving?
-            </h2>
-
-            {/* Search */}
-            <div className="relative w-full md:w-80">
-              <Search
-                size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"
-              />
-
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search the menu..."
-                className="w-full rounded-full border border-white/10 bg-white/[0.035] py-3.5 pl-11 pr-5 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-white/20"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Categories */}
-        <div className="mt-12 flex gap-2 overflow-x-auto pb-2">
-          {categories.map((category) => {
-            const active = category === activeCategory;
-
-            return (
-              <button
-                key={category}
-                onClick={() => setActiveCategory(category)}
-                className={`shrink-0 rounded-full px-5 py-2.5 text-sm transition ${
-                  active
-                    ? "bg-[#f5f2ea] text-[#0b0b0d]"
-                    : "border border-white/10 text-white/45 hover:border-white/20 hover:text-white"
-                }`}
-              >
-                {category}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Menu */}
-        <section className="mt-8">
-          {filteredItems.length > 0 ? (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredItems.map((item) => (
-                <MenuCard
-                  key={item.id}
-                  item={item}
-                  onSelect={setSelectedItem}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-[28px] border border-white/10 py-20 text-center">
-              <p className="text-lg text-white/70">Nothing found.</p>
-
-              <p className="mt-2 text-sm text-white/30">
-                Try another search or category.
-              </p>
-            </div>
-          )}
-        </section>
+        <MenuBrowser
+          categories={menuCategories}
+          items={menuItems}
+          quickQuantity={quickQuantity}
+          totalQuantity={totalQuantity}
+          onQuickAdd={quickAdd}
+          onQuickRemove={quickRemove}
+          onOpenItem={setSelectedItem}
+          stickyExtra={guestPicker}
+        />
       </div>
 
       {/* Order error banner */}
@@ -370,79 +373,24 @@ function MenuPage({ tableId }: { tableId: string }) {
         </div>
       )}
 
-      {/* Floating Cart */}
+      {/* Cart bar */}
       {cartCount > 0 && (
-        <div className="fixed bottom-6 left-1/2 z-50 w-[calc(100%-32px)] max-w-xl -translate-x-1/2">
-          <div className="rounded-3xl border border-white/10 bg-[#17171b]/95 p-3 shadow-2xl backdrop-blur-xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f5f2ea] text-[#0b0b0d]">
-                  <ShoppingBag size={18} />
-                </div>
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0b0b0d]/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedItem(null);
+              setCartDrawerOpen(true);
+            }}
+            className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
+          >
+            <span className="flex items-center gap-2">
+              <ShoppingBag size={16} />
+              {cartCount} {cartCount === 1 ? "item" : "items"}
+            </span>
 
-                <div>
-                  <p className="text-sm font-medium text-white">
-                    {cartCount} {cartCount === 1 ? "item" : "items"}
-                  </p>
-
-                  <p className="text-xs text-white/40">₹{cartTotal}</p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedItem(null);
-                  setCartDrawerOpen(true);
-                }}
-                className="rounded-full bg-[#f5f2ea] px-5 py-3 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.02]"
-              >
-                View order
-              </button>
-            </div>
-
-            {/* Cart preview */}
-            <div className="nova-scrollbar mt-3 max-h-40 overflow-y-auto border-t border-white/10 pt-3">
-              <div className="space-y-3">
-                {cart.map((item) => (
-                  <div
-                    key={item.cartItemId}
-                    className="flex items-center justify-between gap-4 px-1"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium text-white/70">
-                        {item.name}
-                      </p>
-
-                      {getCartItemDetails(item) && (
-                        <p className="mt-1 truncate text-[11px] text-white/30">
-                          {getCartItemDetails(item)}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="text-xs text-white/50">
-                        × {item.quantity}
-                      </span>
-
-                      <span className="text-xs text-white/60">
-                        ₹{getCartItemUnitPrice(item) * item.quantity}
-                      </span>
-
-                      <button
-                        onClick={() => removeFromCart(item.cartItemId)}
-                        className="text-white/25 transition hover:text-white"
-                        aria-label={`Remove ${item.name}`}
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+            <span>View order · ₹{cartTotal}</span>
+          </button>
         </div>
       )}
 
@@ -450,6 +398,7 @@ function MenuPage({ tableId }: { tableId: string }) {
         key={selectedItem?.id ?? "closed"}
         item={selectedItem}
         guests={displayGuests}
+        defaultGuestIndex={activeGuestIndex}
         onClose={() => setSelectedItem(null)}
         onAdd={addToCart}
       />

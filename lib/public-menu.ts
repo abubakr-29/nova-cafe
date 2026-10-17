@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { connection } from "next/server";
 
+import type { Diet } from "@/lib/menu-import";
 import { createPublicClient } from "@/lib/supabase/public";
 
 export type PublicMenuSize = {
@@ -14,6 +15,7 @@ export type PublicMenuItem = {
   name: string;
   price: number;
   available: boolean;
+  diet: Diet | null;
   /** Empty when the item has no size options. Sorted cheapest first. */
   sizes: PublicMenuSize[];
 };
@@ -62,7 +64,7 @@ export const getPublicMenu = cache(
       supabase
         .from("menu_items")
         .select(
-          "id, name, price, available, category_id, sort_order, menu_item_sizes(name, price)",
+          "id, name, price, available, diet, category_id, sort_order, menu_item_sizes(name, price)",
         )
         .eq("restaurant_id", restaurant.id)
         .order("sort_order"),
@@ -83,6 +85,7 @@ export const getPublicMenu = cache(
         name: row.name,
         price: basePrice,
         available: row.available !== false,
+        diet: row.diet ?? null,
         // Size prices are extras added on top of the base price, which is how
         // the cart and place_order charge them, so show the real total.
         sizes: (row.menu_item_sizes ?? [])

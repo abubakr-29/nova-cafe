@@ -1,5 +1,6 @@
 "use client";
 
+import { mapMenuItems, type MenuItemRow } from "@/lib/menu-mapping";
 import {
   createContext,
   useCallback,
@@ -55,36 +56,14 @@ async function fetchMenu(
   const { data: items } = await supabase
     .from("menu_items")
     .select(
-      "id, name, description, price, image_url, available, category_id, sort_order, menu_item_sizes(id, name, price), menu_item_addons(id, name, price)",
+      "id, name, description, price, image_url, available, diet, category_id, sort_order, menu_item_sizes(id, name, price, sort_order), menu_item_addons(id, name, price, sort_order)",
     )
     .eq("restaurant_id", restaurantId)
     .order("sort_order");
 
   return {
     categories: (categoryRows ?? []).map((c) => ({ id: c.id, name: c.name })),
-    items: (items ?? []).map((item) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description ?? "",
-      price: item.price,
-      image: item.image_url ?? "",
-      category: categoryNameById.get(item.category_id) ?? "",
-      available: item.available,
-      sizes: item.menu_item_sizes?.length
-        ? item.menu_item_sizes.map((s) => ({
-            id: s.id,
-            name: s.name,
-            price: s.price,
-          }))
-        : undefined,
-      addons: item.menu_item_addons?.length
-        ? item.menu_item_addons.map((a) => ({
-            id: a.id,
-            name: a.name,
-            price: a.price,
-          }))
-        : undefined,
-    })),
+    items: mapMenuItems((items ?? []) as MenuItemRow[], categoryNameById),
   };
 }
 
