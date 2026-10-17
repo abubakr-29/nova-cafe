@@ -147,7 +147,7 @@ export default function PublicMenuView({
                 <nav aria-label="Menu categories">
                   <div
                     ref={chipBarRef}
-                    className="relative -mx-5 flex gap-2 overflow-x-auto px-5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    className="relative -mx-5 flex gap-2 overflow-x-auto px-5 py-3 scrollbar-none [&::-webkit-scrollbar]:hidden"
                   >
                     {categories.map((category) => {
                       const active = category.id === activeId;
@@ -195,7 +195,7 @@ export default function PublicMenuView({
                     {category.name}
                   </h2>
 
-                  <ul className="mt-2 divide-y divide-white/[0.06]">
+                  <ul className="mt-2 divide-y divide-white/6">
                     {category.items.map((item) => (
                       <li
                         key={item.id}
@@ -205,7 +205,7 @@ export default function PublicMenuView({
                       >
                         <div className="min-w-0">
                           <p className="flex items-start gap-2 text-[15px]">
-                            <DietDot diet={item.diet} className="mt-[3px]" />
+                            <DietDot diet={item.diet} className="mt-0.75" />
                             <span className="wrap-break-word">{item.name}</span>
                           </p>
 
