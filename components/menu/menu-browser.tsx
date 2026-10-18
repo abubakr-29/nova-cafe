@@ -22,6 +22,8 @@ type MenuBrowserProps = {
   onOpenItem: (item: MenuItem) => void;
   /** Extra row shown in the sticky bar, e.g. the "Ordering for" guest picker. */
   stickyExtra?: ReactNode;
+  /** Where the sticky bar sticks. Defaults to the top of the screen. */
+  stickyClassName?: string;
 };
 
 type Section = { id: string; name: string; items: MenuItem[] };
@@ -56,6 +58,7 @@ export default function MenuBrowser({
   onQuickRemove,
   onOpenItem,
   stickyExtra,
+  stickyClassName = "top-0",
 }: MenuBrowserProps) {
   const [query, setQuery] = useState("");
   const [vegOnly, setVegOnly] = useState(false);
@@ -196,7 +199,9 @@ export default function MenuBrowser({
   return (
     <div>
       {/* Sticky search + filters + categories */}
-      <div className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#0b0b0d]/95 backdrop-blur-md">
+      <div
+        className={`sticky ${stickyClassName} z-30 border-b border-white/[0.07] bg-[#0b0b0d]/95 backdrop-blur-md`}
+      >
         <div className="mx-auto max-w-2xl px-4 pt-3">
           <div className="flex items-center gap-2">
             <div className="relative min-w-0 flex-1">

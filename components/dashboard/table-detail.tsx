@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
   Bell,
@@ -285,6 +286,16 @@ export default function TableDetail({
           </div>
         </div>
       )}
+
+      {/* Take an order for this table */}
+      <div className="border-t border-white/8 p-6">
+        <Link
+          href={`/dashboard/new-order?table=${table.id}`}
+          className="block w-full rounded-full bg-[#f5f2ea] py-3 text-center text-xs font-medium text-[#0b0b0d] transition hover:scale-[1.01]"
+        >
+          Take order
+        </Link>
+      </div>
 
       {/* Booking */}
       <div className="border-t border-white/8 p-6">

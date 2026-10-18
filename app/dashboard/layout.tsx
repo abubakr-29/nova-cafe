@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  ClipboardList,
   LayoutGrid,
   LogOut,
   Menu as MenuIcon,
@@ -18,6 +19,7 @@ import { StaffDataProvider, useStaffData } from "@/lib/staff-data-context";
 
 const baseNavItems = [
   { href: "/dashboard", icon: LayoutGrid, label: "Floor & orders" },
+  { href: "/dashboard/new-order", icon: ClipboardList, label: "Take order" },
   { href: "/dashboard/menu", icon: MenuIcon, label: "Menu" },
 ];
 
