@@ -143,6 +143,7 @@ export default function MenuItemSheet({
               alt={currentItem.name}
               fill
               sizes="(max-width: 768px) 100vw, 672px"
+              unoptimized
               className="object-cover"
             />
 

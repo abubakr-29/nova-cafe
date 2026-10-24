@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Bell, ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import DietDot from "@/components/menu/diet-dot";
+import PhotoField from "@/components/menu/photo-field";
 import { formatPrice } from "@/lib/format-price";
 import type { Diet } from "@/lib/menu-import";
 import { useStaffData } from "@/lib/staff-data-context";
@@ -460,6 +461,12 @@ export default function DashboardMenuPage() {
 
               <div className="flex shrink-0 items-center gap-3">
                 <Link
+                  href="/dashboard/menu/photos"
+                  className="flex h-12 items-center rounded-full border border-white/10 px-5 text-sm text-white/60 transition hover:bg-white/5 hover:text-white"
+                >
+                  Photos
+                </Link>
+                <Link
                   href="/dashboard/menu/import"
                   className="flex h-12 items-center rounded-full border border-white/10 px-5 text-sm text-white/60 transition hover:bg-white/5 hover:text-white"
                 >
@@ -717,11 +724,10 @@ export default function DashboardMenuPage() {
                 />
               </div>
 
-              <input
+              <PhotoField
                 value={form.imageUrl}
-                onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                placeholder="Image URL (optional)"
-                className="rounded-xl border border-white/10 bg-white/2.5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/25 focus:border-white/20 sm:col-span-2"
+                onChange={(url) => setForm({ ...form, imageUrl: url })}
+                restaurantId={restaurantId}
               />
 
               <label className="flex items-center gap-2 text-sm text-white/60 sm:col-span-2">

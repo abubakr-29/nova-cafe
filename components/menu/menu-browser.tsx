@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import DietDot from "@/components/menu/diet-dot";
 import { MAX_ITEM_QUANTITY } from "@/lib/cart";
 import { formatPrice } from "@/lib/format-price";
+import { thumbnailUrl } from "@/lib/menu-image";
 import type { MenuCategory, MenuItem } from "@/types/menu";
 
 type MenuBrowserProps = {
@@ -422,10 +423,13 @@ function MenuRow({
   onQuickRemove: (item: MenuItem) => void;
   onOpen: (item: MenuItem) => void;
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
+  // 0 = the small thumbnail, 1 = the full photo (older uploads have no
+  // thumbnail), 2 = give up quietly (no broken-image icon).
+  const [imageStage, setImageStage] = useState(0);
 
   const available = item.available !== false;
-  const showImage = !!item.image && !imageFailed;
+  const showImage = !!item.image && imageStage < 2;
+  const imageSrc = imageStage === 0 ? thumbnailUrl(item.image) : item.image;
 
   return (
     <li
@@ -477,12 +481,18 @@ function MenuRow({
             className="block disabled:cursor-default"
           >
             <Image
-              src={item.image}
+              key={imageSrc}
+              src={imageSrc}
               alt=""
               width={84}
               height={84}
               sizes="84px"
-              onError={() => setImageFailed(true)}
+              unoptimized
+              onError={() =>
+                setImageStage((stage) =>
+                  stage === 0 && imageSrc !== item.image ? 1 : 2,
+                )
+              }
               className="h-21 w-21 rounded-2xl object-cover"
             />
           </button>

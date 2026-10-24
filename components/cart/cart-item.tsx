@@ -2,6 +2,7 @@
 
 import { Minus, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
+import { thumbnailUrl } from "@/lib/menu-image";
 import type { CartItem as CartItemType } from "@/types/cart";
 import {
   getCartItemDetails,
@@ -31,13 +32,16 @@ export default function CartItem({
       <div className="flex gap-4">
         {/* Image */}
         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-white/4">
-          <Image
-            src={item.image}
-            alt={item.name}
-            fill
-            sizes="80px"
-            className="object-cover"
-          />
+          {item.image && (
+            <Image
+              src={thumbnailUrl(item.image)}
+              alt={item.name}
+              fill
+              sizes="80px"
+              unoptimized
+              className="object-cover"
+            />
+          )}
         </div>
 
         {/* Content */}
