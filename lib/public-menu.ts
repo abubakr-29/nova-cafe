@@ -28,6 +28,7 @@ export type PublicMenuCategory = {
 
 export type PublicMenu = {
   restaurantName: string;
+  open: boolean;
   categories: PublicMenuCategory[];
 };
 
@@ -54,6 +55,15 @@ export const getPublicMenu = cache(
     // A failed lookup is an error (500), not "this café doesn't exist" (404).
     if (restaurantError) throw new Error("Couldn't load the menu.");
     if (!restaurant) return null;
+
+    // Paused café: don't load or show the menu. A failed check counts as open.
+    const { data: isOpen } = await supabase.rpc("restaurant_is_open", {
+      p_restaurant_slug: slug,
+    });
+
+    if (isOpen === false) {
+      return { restaurantName: restaurant.name, open: false, categories: [] };
+    }
 
     const [categoriesResult, itemsResult] = await Promise.all([
       supabase
@@ -117,6 +127,7 @@ export const getPublicMenu = cache(
 
     return {
       restaurantName: restaurant.name,
+      open: true,
       // An empty category is just noise on a browse-only page.
       categories: categories.filter((c) => c.items.length > 0),
     };

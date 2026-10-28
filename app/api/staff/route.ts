@@ -30,6 +30,19 @@ async function requireOwner() {
     };
   }
 
+  // These routes use the service key, which bypasses the database rules, so
+  // the paused-café check has to be made here too.
+  const { data: billingStatus } = await supabase.rpc("my_billing_status");
+
+  if (billingStatus === "suspended") {
+    return {
+      error: NextResponse.json(
+        { error: "This account is currently paused." },
+        { status: 403 },
+      ),
+    };
+  }
+
   return { user, profile };
 }
 

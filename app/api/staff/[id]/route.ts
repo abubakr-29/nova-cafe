@@ -31,6 +31,17 @@ export async function DELETE(
     );
   }
 
+  // Service-key route: the database rules don't apply, so check the
+  // paused-café switch here.
+  const { data: billingStatus } = await supabase.rpc("my_billing_status");
+
+  if (billingStatus === "suspended") {
+    return NextResponse.json(
+      { error: "This account is currently paused." },
+      { status: 403 },
+    );
+  }
+
   if (id === user.id) {
     return NextResponse.json(
       { error: "You can't remove your own account." },

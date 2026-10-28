@@ -156,6 +156,8 @@ type WriteResult = { error?: string };
 
 type StaffDataContextValue = {
   loading: boolean;
+  /** True when the café's service has been paused (manual billing switch). */
+  suspended: boolean;
   restaurantId: string | null;
   restaurantName: string;
   restaurantSlug: string;
@@ -200,6 +202,7 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
   const [restaurantSlug, setRestaurantSlug] = useState("");
   const [taxRate, setTaxRate] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [suspended, setSuspended] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [sessions, setSessions] = useState<TableSession[]>([]);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
@@ -224,6 +227,20 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
 
     async function init() {
       setLoading(true);
+
+      // A paused café can't read its own data (current_restaurant_id() returns
+      // null for it), so ask the dedicated status function first. That way the
+      // dashboard can say "service paused" instead of "not set up yet".
+      const { data: billingStatus } = await supabase.rpc("my_billing_status");
+
+      if (ignore) return;
+
+      if (billingStatus === "suspended") {
+        setSuspended(true);
+        setRestaurantId(null);
+        setLoading(false);
+        return;
+      }
 
       // Resolve the signed-in staff member's own restaurant via the
       // auth-scoped current_restaurant_id() RPC — never a slug, so each
@@ -600,6 +617,7 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
     <StaffDataContext.Provider
       value={{
         loading,
+        suspended,
         restaurantId,
         restaurantName,
         restaurantSlug,

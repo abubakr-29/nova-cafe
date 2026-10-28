@@ -66,6 +66,7 @@ function MenuPage({ tableId }: { tableId: string }) {
 
   const {
     loading,
+    acceptingOrders,
     restaurantId,
     restaurantName,
     orders,
@@ -274,6 +275,18 @@ function MenuPage({ tableId }: { tableId: string }) {
       <NotFoundScreen
         title="This table is reserved."
         message="Please ask a member of staff to seat you."
+      />
+    );
+  }
+
+  // The café's service is paused and nobody is seated here: nothing to order.
+  // (Guests already seated carry on, so they can still see and pay their bill;
+  // place_order refuses new orders.)
+  if (!acceptingOrders && !currentSession) {
+    return (
+      <NotFoundScreen
+        title="This café isn't taking orders right now."
+        message="Please ask a member of staff for help."
       />
     );
   }

@@ -44,7 +44,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { loading, restaurantId, restaurantName } = useStaffData();
+  const { loading, suspended, restaurantId, restaurantName } = useStaffData();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
@@ -97,6 +97,11 @@ function DashboardShell({ children }: { children: ReactNode }) {
     return href === "/dashboard"
       ? pathname === href
       : pathname === href || pathname.startsWith(`${href}/`);
+  }
+
+  // The café's service has been paused (manual billing switch).
+  if (!loading && suspended) {
+    return <PausedScreen onSignOut={handleSignOut} />;
   }
 
   // Loading has finished and this account isn't linked to any restaurant
@@ -240,6 +245,46 @@ function DashboardShell({ children }: { children: ReactNode }) {
         {/* Main */}
         <div className="min-w-0 flex-1 overflow-y-auto pt-16 lg:pt-0 print:overflow-visible print:pt-0">
           {children}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function PausedScreen({ onSignOut }: { onSignOut: () => void }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#0b0b0d] px-6 text-[#f5f2ea]">
+      <div className="w-full max-w-md text-center">
+        <p className="text-[10px] uppercase tracking-[0.3em] text-white/35">
+          Service paused
+        </p>
+
+        <h1 className="mt-4 text-2xl font-medium">
+          Your account is currently paused
+        </h1>
+
+        <p className="mt-4 text-sm leading-relaxed text-white/50">
+          Ordering and the dashboard are switched off for now. Please contact
+          NOVA to get your service switched back on. Your data is safe and will
+          be here when you return.
+        </p>
+
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="cursor-pointer rounded-full bg-white/10 px-5 py-2.5 text-sm transition hover:bg-white/15"
+          >
+            Check again
+          </button>
+
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="cursor-pointer rounded-full border border-white/10 px-5 py-2.5 text-sm text-white/50 transition hover:bg-white/5 hover:text-white/70"
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </main>

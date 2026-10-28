@@ -220,6 +220,8 @@ async function fetchCustomerView(
 
 type CustomerDataContextValue = {
   loading: boolean;
+  /** False when the café's service is paused: it takes no new orders. */
+  acceptingOrders: boolean;
   restaurantId: string | null;
   restaurantName: string;
   taxRate: number;
@@ -259,6 +261,7 @@ export function CustomerDataProvider({
   const [restaurantName, setRestaurantName] = useState("");
   const [taxRate, setTaxRate] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [acceptingOrders, setAcceptingOrders] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [sessions, setSessions] = useState<TableSession[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -306,6 +309,15 @@ export function CustomerDataProvider({
         return;
       }
 
+      // Paused cafés take no new orders (place_order enforces this too).
+      // A failed check is treated as "open": the database still decides.
+      const { data: isOpen } = await supabase.rpc("restaurant_is_open", {
+        p_restaurant_slug: restaurantSlug,
+      });
+
+      if (ignore) return;
+
+      setAcceptingOrders(isOpen !== false);
       setRestaurantId(restaurant.id);
       setRestaurantName(restaurant.name);
       setTaxRate(restaurant.tax_rate);
@@ -446,6 +458,7 @@ export function CustomerDataProvider({
     <CustomerDataContext.Provider
       value={{
         loading,
+        acceptingOrders,
         restaurantId,
         restaurantName,
         taxRate,
