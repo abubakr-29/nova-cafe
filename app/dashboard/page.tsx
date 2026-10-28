@@ -237,7 +237,7 @@ export default function DashboardPage() {
       {/* Today at a glance */}
       <section
         aria-label="Today at a glance"
-        className="mt-6 grid grid-cols-3 divide-x divide-white/[0.07] rounded-3xl border border-white/[0.07] bg-white/[0.025]"
+        className="mt-6 grid grid-cols-3 divide-x divide-white/[0.07] rounded-3xl border border-white/[0.07] bg-white/2.5"
       >
         <Stat
           label="Tables in use"
