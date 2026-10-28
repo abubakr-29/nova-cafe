@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ClipboardList,
+  History,
   LayoutGrid,
   LogOut,
   Menu as MenuIcon,
@@ -18,8 +19,9 @@ import { createClient } from "@/lib/supabase/client";
 import { StaffDataProvider, useStaffData } from "@/lib/staff-data-context";
 
 const baseNavItems = [
-  { href: "/dashboard", icon: LayoutGrid, label: "Floor & orders" },
+  { href: "/dashboard", icon: LayoutGrid, label: "Orders & tables" },
   { href: "/dashboard/new-order", icon: ClipboardList, label: "Take order" },
+  { href: "/dashboard/history", icon: History, label: "History" },
   { href: "/dashboard/menu", icon: MenuIcon, label: "Menu" },
 ];
 

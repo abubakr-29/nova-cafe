@@ -37,6 +37,9 @@ export type RestaurantTable = {
   sessionId?: string;
   guestCount?: number;
 
+  /** When the current party sat down (ISO). */
+  seatedAt?: string;
+
   orders?: TableOrderSummary[];
 
   currentTotal?: number;

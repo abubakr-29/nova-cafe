@@ -1,50 +1,45 @@
 "use client";
 
-import { Bell } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import TableMap from "@/components/dashboard/table-map";
-import TableDetail from "@/components/dashboard/table-detail";
-import type { RestaurantTable } from "@/types/table";
-import OrderQueue from "@/components/orders/order-queue";
-import TableSessionDrawer from "@/components/dashboard/table-session";
 import BillSheet from "@/components/dashboard/bill-sheet";
-import { useStaffData } from "@/lib/staff-data-context";
+import StaleTables, {
+  type StaleTable,
+} from "@/components/dashboard/stale-tables";
+import TableDetail from "@/components/dashboard/table-detail";
+import TableDetailSheet from "@/components/dashboard/table-detail-sheet";
+import TableGrid from "@/components/dashboard/table-grid";
+import TableSessionDrawer from "@/components/dashboard/table-session";
+import OrderQueue from "@/components/orders/order-queue";
 import OrderValidationPanel from "@/components/orders/order-validation-panel";
 import { applyBookingHold, useNow } from "@/lib/reservations";
+import { useStaffData } from "@/lib/staff-data-context";
+import type { RestaurantTable } from "@/types/table";
+
+type Tab = "orders" | "tables";
 
 function getGreeting() {
   const hour = new Date().getHours();
 
-  if (hour < 12) {
-    return "Good morning.";
-  }
-
-  if (hour < 17) {
-    return "Good afternoon.";
-  }
-
-  return "Good evening.";
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 function getFormattedToday() {
-  const now = new Date();
-
-  const weekday = now.toLocaleDateString("en-IN", { weekday: "long" });
-  const dayMonth = now.toLocaleDateString("en-IN", {
+  return new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
     day: "numeric",
     month: "long",
   });
-
-  return `${weekday} · ${dayMonth}`;
 }
 
 export default function DashboardPage() {
   const {
-    restaurantName,
     orders,
     sessions,
     tables,
+    businessDay,
     updateOrderStatus,
     cancelOrder,
     requestBill,
@@ -56,18 +51,36 @@ export default function DashboardPage() {
     clearReservation,
   } = useStaffData();
 
+  const [tab, setTab] = useState<Tab>("orders");
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [sessionTableId, setSessionTableId] = useState<string | null>(null);
   const [billOpen, setBillOpen] = useState(false);
 
-  // Ticks about once a minute so a booking's hold starts/ends on its own.
+  // Ticks about once a minute: bookings start/end their hold, order ages update.
   const now = useNow();
+
+  const openSessions = useMemo(
+    () => sessions.filter((session) => session.status !== "closed"),
+    [sessions],
+  );
+
+  const orderById = useMemo(
+    () => new Map(orders.map((order) => [order.id, order])),
+    [orders],
+  );
+
+  const sessionTotal = (orderIds: string[]) =>
+    orderIds.reduce((total, orderId) => {
+      const order = orderById.get(orderId);
+
+      return order && order.status !== "cancelled"
+        ? total + order.total
+        : total;
+    }, 0);
 
   const tablesWithLiveData = useMemo(() => {
     return tables.map((table) => {
-      const session = sessions.find(
-        (s) => s.tableId === table.id && s.status !== "closed",
-      );
+      const session = openSessions.find((s) => s.tableId === table.id);
 
       if (!session) {
         // A free table shows as reserved while a booking's hold is active.
@@ -75,13 +88,14 @@ export default function DashboardPage() {
       }
 
       const sessionOrders = session.orderIds
-        .map((orderId) => orders.find((order) => order.id === orderId))
+        .map((orderId) => orderById.get(orderId))
         .filter((order): order is (typeof orders)[number] => Boolean(order))
         .filter((order) => order.status !== "cancelled");
 
       return {
         ...table,
         guestCount: session.guests.length,
+        seatedAt: session.startedAt,
         currentTotal: sessionOrders.reduce(
           (total, order) => total + order.total,
           0,
@@ -95,52 +109,80 @@ export default function DashboardPage() {
         })),
       };
     });
-  }, [tables, sessions, orders, now]);
+  }, [tables, openSessions, orderById, now]);
 
   const selectedTable =
     tablesWithLiveData.find((table) => table.id === selectedTableId) ?? null;
 
-  const occupiedTables = useMemo(
-    () => tables.filter((table) => table.status === "occupied").length,
-    [tables],
+  const occupiedTables = tables.filter(
+    (table) => table.status === "occupied",
+  ).length;
+
+  const activeOrders = orders.filter(
+    (order) =>
+      order.status === "pending" ||
+      order.status === "confirmed" ||
+      order.status === "preparing" ||
+      order.status === "ready",
+  ).length;
+
+  const openSales = openSessions.reduce(
+    (total, session) => total + sessionTotal(session.orderIds),
+    0,
   );
 
-  const activeOrders = useMemo(
+  // Orders of tables that are still open (their served orders stay on the board).
+  const openOrderIds = useMemo(
+    () => new Set(openSessions.flatMap((session) => session.orderIds)),
+    [openSessions],
+  );
+
+  const billRequestedTableIds = useMemo(
     () =>
-      orders.filter(
-        (order) =>
-          order.status !== "served" &&
-          order.status !== "completed" &&
-          order.status !== "cancelled",
-      ).length,
-    [orders],
+      new Set(
+        openSessions
+          .filter(
+            (session) =>
+              session.billRequested && session.paymentStatus === "unpaid",
+          )
+          .map((session) => session.tableId),
+      ),
+    [openSessions],
   );
 
-  const readyOrders = useMemo(
-    () => orders.filter((order) => order.status === "ready").length,
-    [orders],
+  const paidTableIds = useMemo(
+    () =>
+      new Set(
+        openSessions
+          .filter((session) => session.paymentStatus === "paid")
+          .map((session) => session.tableId),
+      ),
+    [openSessions],
   );
 
-  const currentSales = useMemo(() => {
-    return sessions.reduce((total, session) => {
-      if (session.status !== "open") {
-        return total;
-      }
+  // Tables left open from before today's start.
+  const staleTables: StaleTable[] = useMemo(() => {
+    if (!businessDay) return [];
 
-      return (
-        total +
-        session.orderIds.reduce((sessionTotal, orderId) => {
-          const order = orders.find((order) => order.id === orderId);
+    const dayStart = new Date(businessDay.startsAt).getTime();
 
-          if (!order || order.status === "cancelled") {
-            return sessionTotal;
-          }
+    return openSessions
+      .filter((session) => new Date(session.startedAt).getTime() < dayStart)
+      .map((session) => ({
+        tableId: session.tableId,
+        tableName: session.tableName,
+        startedAt: session.startedAt,
+        guestCount: session.guests.length,
+        total: session.orderIds.reduce((total, orderId) => {
+          const order = orderById.get(orderId);
 
-          return sessionTotal + order.total;
-        }, 0)
-      );
-    }, 0);
-  }, [orders, sessions]);
+          return order && order.status !== "cancelled"
+            ? total + order.total
+            : total;
+        }, 0),
+        paid: session.paymentStatus === "paid",
+      }));
+  }, [businessDay, openSessions, orderById]);
 
   const activeSession =
     sessions.find((session) => session.tableId === sessionTableId) ?? null;
@@ -149,42 +191,10 @@ export default function DashboardPage() {
     setSelectedTableId(table.id);
   }
 
-  const billRequestedTableIds = useMemo(
-    () =>
-      new Set(
-        sessions
-          .filter(
-            (session) =>
-              session.status !== "closed" &&
-              session.billRequested &&
-              session.paymentStatus === "unpaid",
-          )
-          .map((session) => session.tableId),
-      ),
-    [sessions],
-  );
-
-  const paidTableIds = useMemo(
-    () =>
-      new Set(
-        sessions
-          .filter(
-            (session) =>
-              session.status !== "closed" && session.paymentStatus === "paid",
-          )
-          .map((session) => session.tableId),
-      ),
-    [sessions],
-  );
-
   function handleRequestBillForTable(tableId: string) {
     const session = sessions.find((s) => s.tableId === tableId);
 
-    if (!session) {
-      return;
-    }
-
-    requestBill(session.id);
+    if (session) requestBill(session.id);
   }
 
   function handleFreeTable(tableId: string) {
@@ -194,211 +204,199 @@ export default function DashboardPage() {
       setSessionTableId(null);
       setBillOpen(false);
     }
+
+    setSelectedTableId(null);
   }
 
+  const tabs: { key: Tab; label: string; badge: number; gold: boolean }[] = [
+    { key: "orders", label: "Orders", badge: activeOrders, gold: false },
+    {
+      key: "tables",
+      label: "Tables",
+      badge: billRequestedTableIds.size,
+      gold: true,
+    },
+  ];
+
   return (
-    <>
-      {/* Header */}
-      <header className="flex h-20 items-center justify-between border-b border-white/[0.07] px-6 md:px-10">
-        <div>
-          <p className="text-xs text-white/25">{restaurantName}</p>
+    <div className="mx-auto max-w-375 px-5 py-6 md:px-10 md:py-8">
+      <div className="flex items-end justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          {getGreeting()}
+        </h1>
 
-          <p className="mt-1 text-sm text-white/60">Restaurant dashboard</p>
+        <p className="pb-0.5 text-sm text-white/40">{getFormattedToday()}</p>
+      </div>
+
+      {staleTables.length > 0 && (
+        <div className="mt-5">
+          <StaleTables tables={staleTables} onCloseTable={handleFreeTable} />
         </div>
+      )}
 
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/40 transition hover:bg-white/5 hover:text-white"
-        >
-          <Bell size={16} />
-        </button>
-      </header>
+      {/* Today at a glance */}
+      <section
+        aria-label="Today at a glance"
+        className="mt-6 grid grid-cols-3 divide-x divide-white/[0.07] rounded-3xl border border-white/[0.07] bg-white/[0.025]"
+      >
+        <Stat
+          label="Tables in use"
+          value={`${occupiedTables}`}
+          suffix={`/ ${tables.length}`}
+        />
 
-      {/* Content */}
-      <div className="mx-auto max-w-375 px-6 py-8 md:px-10">
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-[#d7a45a]">
-            Overview
-          </p>
+        <Stat label="Active orders" value={`${activeOrders}`} />
 
-          <div className="mt-3 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-            <div>
-              <h1 className="text-3xl font-medium tracking-[-0.03em] md:text-4xl">
-                {getGreeting()}
-              </h1>
+        <Stat
+          label="Open sales"
+          value={`₹${openSales.toLocaleString("en-IN")}`}
+        />
+      </section>
 
-              <p className="mt-2 text-sm text-white/30">
-                Here&apos;s what&apos;s happening right now.
-              </p>
-            </div>
+      {/* Orders / Tables */}
+      <div
+        role="tablist"
+        aria-label="Dashboard view"
+        className="mt-6 flex w-full rounded-full bg-white/6 p-1 sm:inline-flex sm:w-auto"
+      >
+        {tabs.map((item) => {
+          const active = tab === item.key;
 
-            <span className="text-xs text-white/25">{getFormattedToday()}</span>
-          </div>
-        </div>
+          return (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(item.key)}
+              className={`flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full px-7 text-[15px] font-medium transition sm:flex-none ${
+                active
+                  ? "bg-[#f5f2ea] text-[#0b0b0d]"
+                  : "text-white/60 hover:text-white"
+              }`}
+            >
+              {item.label}
 
-        {/* Stats */}
-        <section className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Occupied tables"
-            value={occupiedTables.toString()}
-            detail={`of ${tables.length} tables`}
-          />
+              {item.badge > 0 && (
+                <span
+                  className={`min-w-5 rounded-full px-1.5 text-center text-xs font-semibold tabular-nums ${
+                    item.gold
+                      ? "bg-[#d7a45a] text-[#0b0b0d]"
+                      : active
+                        ? "bg-black/10"
+                        : "bg-white/12"
+                  }`}
+                >
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-          <StatCard
-            label="Active orders"
-            value={activeOrders.toString()}
-            detail="across the floor"
-          />
+      <div className="mt-6 pb-10">
+        {tab === "orders" ? (
+          <>
+            <OrderValidationPanel
+              orders={orders}
+              onValidate={validateOrder}
+              onCancel={cancelOrder}
+            />
 
-          <StatCard
-            label="Open sales"
-            value={`₹${currentSales.toLocaleString("en-IN")}`}
-            detail="current sessions"
-          />
+            <OrderQueue
+              orders={orders}
+              openOrderIds={openOrderIds}
+              now={now}
+              onStatusChange={updateOrderStatus}
+              onCancel={cancelOrder}
+            />
+          </>
+        ) : (
+          <>
+            <p className="mb-4 text-sm text-white/45">
+              {occupiedTables} of {tables.length}{" "}
+              {tables.length === 1 ? "table" : "tables"} in use
+            </p>
 
-          <StatCard
-            label="Ready"
-            value={readyOrders.toString()}
-            detail="orders waiting"
-          />
-        </section>
-
-        {/* Floor */}
-        <section className="mt-8">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-white/70">Floor plan</p>
-
-              <p className="mt-1 text-xs text-white/25">
-                Front room · 8 tables
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-4">
-              <Legend label="Available" className="bg-white/30" />
-
-              <Legend label="Occupied" className="bg-[#d7a45a]" />
-
-              <Legend label="Reserved" className="bg-blue-200/60" />
-            </div>
-          </div>
-
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_380px]">
-            <TableMap
+            <TableGrid
               tables={tablesWithLiveData}
               selectedTableId={selectedTableId}
               onSelectTable={handleSelectTable}
               billRequestedTableIds={billRequestedTableIds}
               paidTableIds={paidTableIds}
+              now={now}
             />
-
-            <TableDetail
-              table={selectedTable}
-              onViewSession={setSessionTableId}
-              billRequested={
-                selectedTable
-                  ? billRequestedTableIds.has(selectedTable.id)
-                  : false
-              }
-              paid={selectedTable ? paidTableIds.has(selectedTable.id) : false}
-              onRequestBill={handleRequestBillForTable}
-              onFreeTable={handleFreeTable}
-              onReserve={reserveTable}
-              onClearReservation={clearReservation}
-            />
-          </div>
-        </section>
-
-        <section className="mt-10 pb-10">
-          <div className="mb-5 flex items-end justify-between">
-            <div>
-              <p className="text-sm font-medium text-white/70">Live orders</p>
-
-              <p className="mt-1 text-xs text-white/25">
-                Keep the floor moving.
-              </p>
-            </div>
-
-            <span className="text-xs text-white/25">
-              {
-                orders.filter(
-                  (order) =>
-                    order.status !== "served" &&
-                    order.status !== "completed" &&
-                    order.status !== "cancelled",
-                ).length
-              }{" "}
-              active
-            </span>
-          </div>
-
-          <OrderValidationPanel
-            orders={orders}
-            onValidate={validateOrder}
-            onCancel={cancelOrder}
-          />
-
-          <OrderQueue
-            orders={orders}
-            onStatusChange={updateOrderStatus}
-            onCancel={cancelOrder}
-          />
-
-          <TableSessionDrawer
-            session={activeSession}
-            orders={orders}
-            onClose={() => setSessionTableId(null)}
-            onOpenBill={() => {
-              setBillOpen(true);
-            }}
-            onUpdateGuestCount={updateSessionGuestCount}
-          />
-
-          {billOpen && (
-            <BillSheet
-              session={activeSession}
-              orders={orders}
-              onClose={() => {
-                setBillOpen(false);
-                setSessionTableId(null);
-              }}
-              onMarkPaid={markSessionPaid}
-            />
-          )}
-        </section>
+          </>
+        )}
       </div>
-    </>
-  );
-}
-function StatCard({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/[0.07] bg-white/2.5 p-5">
-      <p className="text-xs text-white/30">{label}</p>
 
-      <p className="mt-3 text-2xl font-medium tracking-tight text-white">
-        {value}
-      </p>
+      <TableDetailSheet
+        open={selectedTable !== null}
+        onClose={() => setSelectedTableId(null)}
+      >
+        <TableDetail
+          table={selectedTable}
+          onViewSession={(tableId) => {
+            setSelectedTableId(null);
+            setSessionTableId(tableId);
+          }}
+          billRequested={
+            selectedTable ? billRequestedTableIds.has(selectedTable.id) : false
+          }
+          paid={selectedTable ? paidTableIds.has(selectedTable.id) : false}
+          onRequestBill={handleRequestBillForTable}
+          onFreeTable={handleFreeTable}
+          onReserve={reserveTable}
+          onClearReservation={clearReservation}
+        />
+      </TableDetailSheet>
 
-      <p className="mt-1 text-[10px] text-white/20">{detail}</p>
+      <TableSessionDrawer
+        session={activeSession}
+        orders={orders}
+        onClose={() => setSessionTableId(null)}
+        onOpenBill={() => setBillOpen(true)}
+        onUpdateGuestCount={updateSessionGuestCount}
+      />
+
+      {billOpen && (
+        <BillSheet
+          session={activeSession}
+          orders={orders}
+          onClose={() => {
+            setBillOpen(false);
+            setSessionTableId(null);
+          }}
+          onMarkPaid={markSessionPaid}
+        />
+      )}
     </div>
   );
 }
 
-function Legend({ label, className }: { label: string; className: string }) {
+function Stat({
+  label,
+  value,
+  suffix,
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+}) {
   return (
-    <div className="flex items-center gap-2">
-      <span className={`h-1.5 w-1.5 rounded-full ${className}`} />
+    <div className="px-4 py-4 md:px-6 md:py-5">
+      <p className="text-xs text-white/45 md:text-sm">{label}</p>
 
-      <span className="text-[10px] text-white/25">{label}</span>
+      <p className="mt-1.5 text-xl font-semibold tracking-tight tabular-nums md:text-2xl">
+        {value}
+
+        {suffix && (
+          <span className="ml-1 text-sm font-normal text-white/35">
+            {suffix}
+          </span>
+        )}
+      </p>
     </div>
   );
 }

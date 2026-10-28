@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { BusinessDay } from "@/lib/business-day";
 import type { Order, OrderStatus } from "@/types/order";
 import type { TableSession } from "@/types/session";
 import type { RestaurantTable, TablePosition, TableShape } from "@/types/table";
@@ -85,11 +86,39 @@ async function fetchSessions(
   }));
 }
 
+// Which orders to load. The dashboard never loads a café's whole history:
+//  - "live": today's orders, every order of a still-open table, and anything not
+//    finished yet (so an unfinished order is never hidden by the day rollover).
+//  - "range": one business day, for the History page.
+type OrderScope =
+  | { kind: "live"; startsAt: string; openSessionIds: string[] }
+  | { kind: "range"; startsAt: string; endsAt: string };
+
+async function fetchBusinessDay(
+  supabase: SupabaseClient,
+  day?: string,
+): Promise<BusinessDay | null> {
+  const { data } = await supabase.rpc("business_day_bounds", {
+    p_day: day ?? null,
+  });
+
+  const row = Array.isArray(data) ? data[0] : null;
+
+  if (!row) return null;
+
+  return {
+    day: row.day,
+    startsAt: new Date(row.starts_at).toISOString(),
+    endsAt: new Date(row.ends_at).toISOString(),
+  };
+}
+
 async function fetchOrders(
   supabase: SupabaseClient,
   restaurantId: string,
+  scope: OrderScope,
 ): Promise<Order[]> {
-  const { data } = await supabase
+  let query = supabase
     .from("orders")
     .select(
       `id, order_number, validation_code, table_id, status, subtotal, tax, total, created_at,
@@ -102,6 +131,25 @@ async function fetchOrders(
     )
     .eq("restaurant_id", restaurantId)
     .order("created_at", { ascending: true });
+
+  if (scope.kind === "live") {
+    const parts = [
+      `created_at.gte.${scope.startsAt}`,
+      "status.in.(awaiting_validation,pending,confirmed,preparing,ready)",
+    ];
+
+    if (scope.openSessionIds.length > 0) {
+      parts.push(`session_id.in.(${scope.openSessionIds.join(",")})`);
+    }
+
+    query = query.or(parts.join(","));
+  } else {
+    query = query
+      .gte("created_at", scope.startsAt)
+      .lt("created_at", scope.endsAt);
+  }
+
+  const { data } = await query;
 
   return (data ?? []).map((o) => ({
     id: o.id,
@@ -154,6 +202,12 @@ export type TablePatch = {
 
 type WriteResult = { error?: string };
 
+export type DayOrders = {
+  day: BusinessDay | null;
+  orders: Order[];
+  error?: string;
+};
+
 type StaffDataContextValue = {
   loading: boolean;
   /** True when the café's service has been paused (manual billing switch). */
@@ -162,9 +216,15 @@ type StaffDataContextValue = {
   restaurantName: string;
   restaurantSlug: string;
   taxRate: number;
+  /** The current business day (null until loaded, or before migration 013). */
+  businessDay: BusinessDay | null;
+  /** Live orders only: today's, plus those of open tables. See OrderScope. */
   orders: Order[];
   sessions: TableSession[];
   tables: RestaurantTable[];
+
+  /** All orders of one business day ("2026-10-27"), for the History page. */
+  fetchDay: (day?: string) => Promise<DayOrders>;
 
   requestBill: (sessionId: string) => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
@@ -203,20 +263,34 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
   const [taxRate, setTaxRate] = useState(0);
   const [loading, setLoading] = useState(true);
   const [suspended, setSuspended] = useState(false);
+  const [businessDay, setBusinessDay] = useState<BusinessDay | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [sessions, setSessions] = useState<TableSession[]>([]);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
 
   const loadData = useCallback(
     async (rid: string) => {
-      const [tablesRes, sessionsRes, ordersRes] = await Promise.all([
+      const [tablesRes, sessionsRes, dayRes] = await Promise.all([
         fetchTables(supabase, rid),
         fetchSessions(supabase, rid),
-        fetchOrders(supabase, rid),
+        fetchBusinessDay(supabase),
       ]);
+
+      // If the day can't be worked out (migration 013 not applied yet), fall
+      // back to this device's midnight so the dashboard still works.
+      const startsAt =
+        dayRes?.startsAt ??
+        new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
+
+      const ordersRes = await fetchOrders(supabase, rid, {
+        kind: "live",
+        startsAt,
+        openSessionIds: sessionsRes.map((s) => s.id),
+      });
 
       setTables(tablesRes);
       setSessions(sessionsRes);
+      setBusinessDay(dayRes);
       setOrders(ordersRes);
     },
     [supabase],
@@ -366,6 +440,52 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
     };
   }, [supabase, restaurantId, refetch]);
+
+  // When the business day rolls over (e.g. 5:00 am) refresh by itself, so a
+  // dashboard left open overnight starts the new day without a manual reload.
+  const dayEndsAt = businessDay?.endsAt ?? null;
+
+  useEffect(() => {
+    if (!dayEndsAt) return;
+
+    const wait = new Date(dayEndsAt).getTime() - Date.now() + 1000;
+
+    // setTimeout can't wait longer than ~24 days; a day is far below that.
+    if (wait <= 0 || wait > 2 ** 31 - 1) return;
+
+    const timer = setTimeout(() => {
+      refetch();
+    }, wait);
+
+    return () => clearTimeout(timer);
+  }, [dayEndsAt, refetch]);
+
+  const fetchDay = useCallback(
+    async (day?: string): Promise<DayOrders> => {
+      if (!restaurantId) {
+        return { day: null, orders: [], error: "No restaurant loaded." };
+      }
+
+      const bounds = await fetchBusinessDay(supabase, day);
+
+      if (!bounds) {
+        return {
+          day: null,
+          orders: [],
+          error: "Could not work out that day. Has migration 013 been run?",
+        };
+      }
+
+      const rows = await fetchOrders(supabase, restaurantId, {
+        kind: "range",
+        startsAt: bounds.startsAt,
+        endsAt: bounds.endsAt,
+      });
+
+      return { day: bounds, orders: rows };
+    },
+    [supabase, restaurantId],
+  );
 
   const requestBill = useCallback(
     async (sessionId: string) => {
@@ -622,6 +742,8 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
         restaurantName,
         restaurantSlug,
         taxRate,
+        businessDay,
+        fetchDay,
         orders,
         sessions,
         tables,
