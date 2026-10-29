@@ -7,7 +7,10 @@ import type { Order } from "@/types/order";
 
 type OrderValidationPanelProps = {
   orders: Order[];
-  onValidate: (orderId: string, code: string) => Promise<boolean>;
+  onValidate: (
+    orderId: string,
+    code: string,
+  ) => Promise<"ok" | "wrong_code" | "failed" | "busy">;
   onCancel: (orderId: string) => void;
 };
 
@@ -55,7 +58,10 @@ function ValidationCard({
   onCancel,
 }: {
   order: Order;
-  onValidate: (orderId: string, code: string) => Promise<boolean>;
+  onValidate: (
+    orderId: string,
+    code: string,
+  ) => Promise<"ok" | "wrong_code" | "failed" | "busy">;
   onCancel: (orderId: string) => void;
 }) {
   const [code, setCode] = useState("");
@@ -63,12 +69,15 @@ function ValidationCard({
   const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   async function handleSubmit() {
-    const success = await onValidate(order.id, code);
+    const result = await onValidate(order.id, code);
 
-    if (!success) {
+    if (result === "wrong_code") {
       setError(true);
       return;
     }
+
+    // A failed save is announced at the bottom of the screen; keep the code typed.
+    if (result !== "ok") return;
 
     setError(false);
     setCode("");

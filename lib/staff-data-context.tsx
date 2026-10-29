@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -228,10 +229,18 @@ type StaffDataContextValue = {
   /** All orders of one business day ("2026-10-27"), for the History page. */
   fetchDay: (day?: string) => Promise<DayOrders>;
 
+  /** The last failed save, to show staff. Set by every write below. */
+  notice: Notice;
+  dismissNotice: () => void;
+
   requestBill: (sessionId: string) => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   cancelOrder: (orderId: string) => Promise<void>;
-  validateOrder: (orderId: string, code: string) => Promise<boolean>;
+  /** "wrong_code" is for the guest-facing code check; "busy" means a tap on the same order is still saving. */
+  validateOrder: (
+    orderId: string,
+    code: string,
+  ) => Promise<"ok" | "wrong_code" | "failed" | "busy">;
   markSessionPaid: (sessionId: string, method: PaymentMethod) => Promise<void>;
   /** The guest said they paid but nothing arrived: back to unpaid. */
   markSessionUnpaid: (sessionId: string) => Promise<void>;
@@ -257,6 +266,11 @@ type StaffDataContextValue = {
   clearReservation: (tableId: string) => Promise<WriteResult>;
 };
 
+export type Notice = { id: number; text: string } | null;
+
+// What a save sends back (a Supabase result): an error, or the rows it changed.
+type SaveResult = { error: unknown; data?: unknown[] | null };
+
 const StaffDataContext = createContext<StaffDataContextValue | null>(null);
 
 export function StaffDataProvider({ children }: { children: ReactNode }) {
@@ -271,6 +285,9 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [sessions, setSessions] = useState<TableSession[]>([]);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
+  const [notice, setNotice] = useState<Notice>(null);
+  const noticeCount = useRef(0);
+  const inFlight = useRef(new Set<string>());
 
   const loadData = useCallback(
     async (rid: string) => {
@@ -491,78 +508,154 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
     [supabase, restaurantId],
   );
 
+  const dismissNotice = useCallback(() => setNotice(null), []);
+
+  const announce = useCallback((text: string) => {
+    noticeCount.current += 1;
+    setNotice({ id: noticeCount.current, text });
+  }, []);
+
+  // Runs one save. A second tap on the same thing is ignored while the first is still
+  // running. If it fails (an error, or nothing was changed, e.g. the café is paused),
+  // staff are told. It always reloads, so the screen shows what is really saved.
+  const save = useCallback(
+    async (
+      key: string,
+      failure: string,
+      work: () => PromiseLike<SaveResult>,
+    ): Promise<"ok" | "failed" | "busy"> => {
+      if (inFlight.current.has(key)) return "busy";
+
+      inFlight.current.add(key);
+      let ok = false;
+
+      try {
+        const { error, data } = await work();
+        ok = !error && (data === undefined || (data?.length ?? 0) > 0);
+      } catch {
+        ok = false;
+      }
+
+      inFlight.current.delete(key);
+      await refetch();
+
+      if (!ok) announce(failure);
+
+      return ok ? "ok" : "failed";
+    },
+    [refetch, announce],
+  );
+
   const requestBill = useCallback(
     async (sessionId: string) => {
-      await supabase
-        .from("table_sessions")
-        .update({ bill_requested: true })
-        .eq("id", sessionId);
-      await refetch();
+      await save(
+        `bill:${sessionId}`,
+        "Couldn't request the bill. Please try again.",
+        () =>
+          supabase
+            .from("table_sessions")
+            .update({ bill_requested: true })
+            .eq("id", sessionId)
+            .select("id"),
+      );
     },
-    [supabase, refetch],
+    [supabase, save],
   );
 
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus) => {
-      await supabase.from("orders").update({ status }).eq("id", orderId);
-      await refetch();
+      await save(
+        `order:${orderId}`,
+        "Couldn't update the order. Please try again.",
+        () =>
+          supabase
+            .from("orders")
+            .update({ status })
+            .eq("id", orderId)
+            .select("id"),
+      );
     },
-    [supabase, refetch],
+    [supabase, save],
   );
 
   const cancelOrder = useCallback(
     async (orderId: string) => {
-      await supabase
-        .from("orders")
-        .update({ status: "cancelled" })
-        .eq("id", orderId);
-      await refetch();
+      await save(
+        `order:${orderId}`,
+        "Couldn't cancel the order. Please try again.",
+        () =>
+          supabase
+            .from("orders")
+            .update({ status: "cancelled" })
+            .eq("id", orderId)
+            .select("id"),
+      );
     },
-    [supabase, refetch],
+    [supabase, save],
   );
 
   const validateOrder = useCallback(
     async (orderId: string, code: string) => {
-      const { data: order } = await supabase
+      const { data: order, error: readError } = await supabase
         .from("orders")
         .select("validation_code")
         .eq("id", orderId)
         .single();
 
-      if (!order || order.validation_code !== code) {
-        return false;
+      if (readError || !order) {
+        announce("Couldn't check the code. Please try again.");
+        return "failed" as const;
       }
 
-      await supabase
-        .from("orders")
-        .update({ status: "pending" })
-        .eq("id", orderId);
-      await refetch();
-      return true;
+      if (order.validation_code !== code) return "wrong_code" as const;
+
+      // Only an order still waiting for its code can be confirmed, so a cancelled
+      // order is never brought back by a late tap.
+      return save(
+        `order:${orderId}`,
+        "Couldn't confirm this order. It may already be confirmed or cancelled.",
+        () =>
+          supabase
+            .from("orders")
+            .update({ status: "pending" })
+            .eq("id", orderId)
+            .eq("status", "awaiting_validation")
+            .select("id"),
+      );
     },
-    [supabase, refetch],
+    [supabase, save, announce],
   );
 
   const markSessionPaid = useCallback(
     async (sessionId: string, method: PaymentMethod) => {
-      await supabase
-        .from("table_sessions")
-        .update({ payment_status: "paid", payment_method: method })
-        .eq("id", sessionId);
-      await refetch();
+      await save(
+        `pay:${sessionId}`,
+        "Couldn't record the payment. Please try again.",
+        () =>
+          supabase
+            .from("table_sessions")
+            .update({ payment_status: "paid", payment_method: method })
+            .eq("id", sessionId)
+            .select("id"),
+      );
     },
-    [supabase, refetch],
+    [supabase, save],
   );
 
   const markSessionUnpaid = useCallback(
     async (sessionId: string) => {
-      await supabase
-        .from("table_sessions")
-        .update({ payment_status: "unpaid" })
-        .eq("id", sessionId);
-      await refetch();
+      await save(
+        `pay:${sessionId}`,
+        "Couldn't update the payment. Please try again.",
+        () =>
+          supabase
+            .from("table_sessions")
+            .update({ payment_status: "unpaid" })
+            .eq("id", sessionId)
+            .select("id"),
+      );
     },
-    [supabase, refetch],
+    [supabase, save],
   );
 
   const closeTableSession = useCallback(
@@ -572,20 +665,33 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
       );
 
       if (session) {
-        await supabase
-          .from("table_sessions")
-          .update({ status: "closed", closed_at: new Date().toISOString() })
-          .eq("id", session.id);
+        const closed = await save(
+          `table:${tableId}`,
+          "Couldn't free the table. Please try again.",
+          () =>
+            supabase
+              .from("table_sessions")
+              .update({ status: "closed", closed_at: new Date().toISOString() })
+              .eq("id", session.id)
+              .select("id"),
+        );
+
+        // Never mark the table free while its visit is still open.
+        if (closed !== "ok") return;
       }
 
-      await supabase
-        .from("restaurant_tables")
-        .update({ status: "available" })
-        .eq("id", tableId);
-
-      await refetch();
+      await save(
+        `table:${tableId}`,
+        "Couldn't free the table. Please try again.",
+        () =>
+          supabase
+            .from("restaurant_tables")
+            .update({ status: "available" })
+            .eq("id", tableId)
+            .select("id"),
+      );
     },
-    [supabase, sessions, refetch],
+    [supabase, sessions, save],
   );
 
   const updateSessionGuestCount = useCallback(
@@ -596,24 +702,38 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
       const safeCount = Math.max(1, guestCount);
       const current = session.guests.length;
 
-      if (safeCount < current) {
-        const idsToRemove = session.guests.slice(safeCount).map((g) => g.id);
-        await supabase.from("session_guests").delete().in("id", idsToRemove);
-      } else if (safeCount > current) {
-        const newGuests = Array.from(
-          { length: safeCount - current },
-          (_, i) => ({
-            session_id: sessionId,
-            name: `Guest ${current + i + 1}`,
-            sort_order: current + i + 1,
-          }),
-        );
-        await supabase.from("session_guests").insert(newGuests);
-      }
+      if (safeCount === current) return;
 
-      await refetch();
+      await save(
+        `guests:${sessionId}`,
+        "Couldn't change the number of guests. Please try again.",
+        () => {
+          if (safeCount < current) {
+            const idsToRemove = session.guests
+              .slice(safeCount)
+              .map((g) => g.id);
+
+            return supabase
+              .from("session_guests")
+              .delete()
+              .in("id", idsToRemove)
+              .select("id");
+          }
+
+          const newGuests = Array.from(
+            { length: safeCount - current },
+            (_, i) => ({
+              session_id: sessionId,
+              name: `Guest ${current + i + 1}`,
+              sort_order: current + i + 1,
+            }),
+          );
+
+          return supabase.from("session_guests").insert(newGuests).select("id");
+        },
+      );
     },
-    [supabase, sessions, refetch],
+    [supabase, sessions, save],
   );
 
   const addTables = useCallback(
@@ -762,6 +882,8 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
         orders,
         sessions,
         tables,
+        notice,
+        dismissNotice,
         requestBill,
         updateOrderStatus,
         cancelOrder,

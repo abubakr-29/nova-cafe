@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -53,15 +54,23 @@ export default function SettingsPage() {
     if (!restaurantId) return;
 
     setSaving(true);
+    setSaveError(null);
 
     const rate = Math.max(0, Math.min(100, Number(taxRatePercent) || 0)) / 100;
 
-    await supabase
+    const { data, error } = await supabase
       .from("restaurants")
       .update({ tax_rate: rate })
-      .eq("id", restaurantId);
+      .eq("id", restaurantId)
+      .select("id");
 
     setSaving(false);
+
+    if (error || !data || data.length === 0) {
+      setSaveError("Couldn't save the tax rate. Please try again.");
+      return;
+    }
+
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -132,6 +141,9 @@ export default function SettingsPage() {
                 >
                   {saved ? "Saved!" : saving ? "Saving..." : "Save changes"}
                 </button>
+                {saveError && (
+                  <p className="mt-3 text-xs text-red-300/80">{saveError}</p>
+                )}
               </div>
             )}
 

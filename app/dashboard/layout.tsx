@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import NoticeToast from "@/components/ui/notice-toast";
 import { StaffDataProvider, useStaffData } from "@/lib/staff-data-context";
 
 const baseNavItems = [
@@ -256,6 +257,8 @@ function DashboardShell({ children }: { children: ReactNode }) {
           {children}
         </div>
       </div>
+
+      <NoticeToast />
     </main>
   );
 }
