@@ -1,8 +1,14 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import DayPicker from "@/components/ui/day-picker";
 import { formatDay, formatDayRelative, shiftDay } from "@/lib/business-day";
 import { useStaffData, type DayOrders } from "@/lib/staff-data-context";
 import type { Order } from "@/types/order";
@@ -16,6 +22,7 @@ export default function HistoryPage() {
   // null means "today", whatever today currently is.
   const [selected, setSelected] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [result, setResult] = useState<DayOrders | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -89,7 +96,14 @@ export default function HistoryPage() {
           <ChevronLeft size={18} />
         </button>
 
-        <label className="relative flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/3 px-5 text-[15px] font-medium sm:flex-none sm:min-w-56">
+        <button
+          type="button"
+          aria-label="Pick a day from the calendar"
+          disabled={!shown}
+          onClick={() => setCalendarOpen(true)}
+          className="relative flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full border border-white/10 bg-white/3 px-5 text-[15px] font-medium transition hover:bg-white/6 sm:min-w-56 sm:flex-none"
+        >
+          <CalendarDays size={16} className="shrink-0 text-white/45" />
           <span>
             {shown ? formatDayRelative(shown, today) : "Loading"}
             {shown && formatDayRelative(shown, today) !== formatDay(shown) && (
@@ -98,16 +112,7 @@ export default function HistoryPage() {
               </span>
             )}
           </span>
-
-          <input
-            type="date"
-            value={shown ?? ""}
-            max={today ?? undefined}
-            onChange={(event) => event.target.value && goTo(event.target.value)}
-            aria-label="Pick a day"
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0 scheme-dark"
-          />
-        </label>
+        </button>
 
         <button
           type="button"
@@ -128,6 +133,17 @@ export default function HistoryPage() {
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
+
+      {calendarOpen && shown && (
+        <DayPicker
+          title="Pick a day"
+          start={shown}
+          end={shown}
+          max={today}
+          onPick={(day) => goTo(day)}
+          onClose={() => setCalendarOpen(false)}
+        />
+      )}
 
       {result?.error ? (
         <p className="mt-8 rounded-2xl border border-red-300/20 bg-red-300/6 px-5 py-4 text-sm text-red-200">

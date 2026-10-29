@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  ChartColumn,
   ClipboardList,
   History,
   LayoutGrid,
@@ -29,6 +30,12 @@ const tablesNavItem = {
   href: "/dashboard/tables",
   icon: QrCode,
   label: "Tables",
+};
+
+const reportsNavItem = {
+  href: "/dashboard/reports",
+  icon: ChartColumn,
+  label: "Reports",
 };
 
 const staffNavItem = { href: "/dashboard/staff", icon: User, label: "Staff" };
@@ -90,7 +97,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
   const navItems = [
     ...baseNavItems,
     ...(canManageTables ? [tablesNavItem] : []),
-    ...(isOwner ? [staffNavItem] : []),
+    ...(isOwner ? [reportsNavItem, staffNavItem] : []),
   ];
 
   // "/dashboard" only matches itself; every other item also matches its
