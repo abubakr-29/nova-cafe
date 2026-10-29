@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Users, X } from "lucide-react";
 
+import PayPanel from "@/components/customer/pay-panel";
 import type { Order } from "@/types/order";
 import type { TableSession } from "@/types/session";
 import { calculateBill, calculateGuestShares } from "@/lib/bill";
@@ -12,17 +13,20 @@ type BillViewProps = {
   session: TableSession;
   orders: Order[];
   onClose: () => void;
-  onPay: () => void;
+  onClaim: (method: "upi" | "cash") => Promise<boolean>;
 };
 
 export default function BillView({
   session,
   orders,
   onClose,
-  onPay,
+  onClaim,
 }: BillViewProps) {
-  const { taxRate } = useCustomerData();
-  const [view, setView] = useState<"overview" | "split">("overview");
+  const { taxRate, paymentOptions, restaurantName } = useCustomerData();
+  const [view, setView] = useState<"overview" | "split" | "pay">("overview");
+  const [payAmount, setPayAmount] = useState(0);
+  const [changing, setChanging] = useState(false);
+  const [payFrom, setPayFrom] = useState<"overview" | "split">("overview");
   const [splitMode, setSplitMode] = useState<"equal" | "itemized">("equal");
 
   const sessionOrders = session.orderIds
@@ -41,6 +45,14 @@ export default function BillView({
     order.items.some((item) => item.assignedGuestId),
   );
   const isPaid = session.paymentStatus === "paid";
+  const isClaimed = session.paymentStatus === "claimed";
+  const taxLabel = `${Math.round(taxRate * 1000) / 10}%`;
+
+  function startPay(amount: number, from: "overview" | "split") {
+    setPayAmount(amount);
+    setPayFrom(from);
+    setView("pay");
+  }
 
   return (
     <div className="fixed inset-0 z-120 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center">
@@ -82,6 +94,48 @@ export default function BillView({
               Done
             </button>
           </div>
+        ) : isClaimed && !changing ? (
+          /* Waiting for staff to confirm */
+          <div className="flex flex-col items-center px-6 py-16 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[#d7a45a]/30 bg-[#d7a45a]/10 text-[#d7a45a]">
+              <Check size={26} strokeWidth={1.8} />
+            </div>
+
+            <p className="mt-6 text-xs uppercase tracking-[0.3em] text-[#d7a45a]">
+              {session.paymentMethod === "cash"
+                ? "Staff are on their way"
+                : "Waiting for the café to confirm"}
+            </p>
+
+            <h2 className="mt-3 text-3xl font-medium tracking-[-0.03em] text-white">
+              ₹{bill.total.toLocaleString("en-IN")}
+            </h2>
+
+            <p className="mt-3 max-w-xs text-sm leading-6 text-white/40">
+              {session.paymentMethod === "cash"
+                ? "Please keep the cash ready. A staff member will collect it at your table."
+                : "We are checking your UPI payment. This usually takes a moment."}
+            </p>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-8 h-13 w-full rounded-full bg-[#f5f2ea] text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
+            >
+              Done
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setChanging(true);
+                setView("overview");
+              }}
+              className="mt-3 h-11 text-xs text-white/40 transition hover:text-white/70"
+            >
+              Pay a different way
+            </button>
+          </div>
         ) : (
           <>
             {/* Header */}
@@ -96,7 +150,19 @@ export default function BillView({
             </header>
 
             <div className="px-6 py-6">
-              {view === "overview" ? (
+              {view === "pay" ? (
+                <PayPanel
+                  amount={payAmount}
+                  note={`${restaurantName} ${session.tableName}`}
+                  options={paymentOptions}
+                  onClaim={async (method) => {
+                    const ok = await onClaim(method);
+                    if (ok) setChanging(false);
+                    return ok;
+                  }}
+                  onBack={() => setView(payFrom)}
+                />
+              ) : view === "overview" ? (
                 <>
                   {/* Items */}
                   <div className="rounded-3xl border border-white/8 bg-white/2.5">
@@ -154,7 +220,7 @@ export default function BillView({
                     </div>
 
                     <div className="mt-3 flex justify-between text-xs">
-                      <span className="text-white/35">Tax · 5%</span>
+                      <span className="text-white/35">Tax · {taxLabel}</span>
                       <span className="text-white/60">
                         ₹{bill.tax.toLocaleString("en-IN")}
                       </span>
@@ -176,7 +242,7 @@ export default function BillView({
                   <div className="mt-6 grid gap-3">
                     <button
                       type="button"
-                      onClick={onPay}
+                      onClick={() => startPay(bill.total, "overview")}
                       className="flex h-14 items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
                     >
                       <span>Pay full bill</span>
@@ -194,11 +260,6 @@ export default function BillView({
                       </button>
                     )}
                   </div>
-
-                  <p className="mt-4 text-center text-[10px] text-white/15">
-                    This demo confirms payment instantly — live card/UPI
-                    processing plugs in at checkout.
-                  </p>
                 </>
               ) : (
                 <>
@@ -250,18 +311,20 @@ export default function BillView({
                   ) : (
                     <div className="space-y-2.5">
                       {guestShares.map((share) => (
-                        <div
+                        <button
+                          type="button"
                           key={share.guestId}
-                          className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/2.5 px-5 py-4"
+                          onClick={() => startPay(share.total, "split")}
+                          className="flex w-full items-center justify-between rounded-2xl border border-white/8 bg-white/2.5 px-5 py-4 text-left transition hover:border-white/20 hover:bg-white/5"
                         >
                           <span className="text-sm text-white/65">
                             {share.guestName}
                           </span>
 
                           <span className="text-sm font-medium text-white">
-                            ₹{share.total.toLocaleString("en-IN")}
+                            ₹{share.total.toLocaleString("en-IN")} · Pay
                           </span>
-                        </div>
+                        </button>
                       ))}
 
                       <p className="pt-1 text-center text-[10px] text-white/20">
@@ -272,13 +335,15 @@ export default function BillView({
                   )}
 
                   <div className="mt-6 grid gap-3">
-                    <button
-                      type="button"
-                      onClick={onPay}
-                      className="flex h-14 items-center justify-center rounded-full bg-[#f5f2ea] text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
-                    >
-                      Confirm split payment
-                    </button>
+                    {(splitMode === "equal" || !hasAssignedItems) && (
+                      <button
+                        type="button"
+                        onClick={() => startPay(equalShare, "split")}
+                        className="flex h-14 items-center justify-center rounded-full bg-[#f5f2ea] text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
+                      >
+                        Pay my share · ₹{equalShare.toLocaleString("en-IN")}
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -290,8 +355,8 @@ export default function BillView({
                   </div>
 
                   <p className="mt-4 text-center text-[10px] text-white/15">
-                    Everyone can see their share here — one confirmation settles
-                    the table.
+                    Everyone pays their share to the same account. The café
+                    confirms once the whole bill is in.
                   </p>
                 </>
               )}

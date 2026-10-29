@@ -1,10 +1,11 @@
 "use client";
 
-import { Bell, Check, Utensils } from "lucide-react";
+import { Banknote, Bell, Check, Utensils } from "lucide-react";
 import { useMemo } from "react";
 
 import { compareTableNames } from "@/lib/table-layout";
 import type { RestaurantTable } from "@/types/table";
+import type { PaymentMethod } from "@/types/payment";
 
 type TableGridProps = {
   tables: RestaurantTable[];
@@ -12,6 +13,8 @@ type TableGridProps = {
   onSelectTable: (table: RestaurantTable) => void;
   billRequestedTableIds: Set<string>;
   paidTableIds: Set<string>;
+  /** Tables where the guest says they paid; staff must confirm. */
+  claimedTables: Map<string, PaymentMethod | null>;
   now: number;
 };
 
@@ -30,6 +33,7 @@ export default function TableGrid({
   onSelectTable,
   billRequestedTableIds,
   paidTableIds,
+  claimedTables,
   now,
 }: TableGridProps) {
   const sorted = useMemo(
@@ -56,6 +60,7 @@ export default function TableGrid({
       {sorted.map((table) => {
         const paid = paidTableIds.has(table.id);
         const billAsked = billRequestedTableIds.has(table.id);
+        const claimed = claimedTables.get(table.id);
         const readyCount =
           table.orders?.filter((order) => order.status === "ready").length ?? 0;
         const selected = table.id === selectedTableId;
@@ -67,19 +72,25 @@ export default function TableGrid({
               className: "bg-emerald-400/15 text-emerald-300",
               icon: <Check size={12} strokeWidth={3} />,
             }
-          : billAsked
+          : claimed !== undefined
             ? {
-                label: "Bill asked",
+                label: claimed === "cash" ? "Collect cash" : "Confirm UPI",
                 className: "bg-[#d7a45a] text-[#0b0b0d]",
-                icon: <Bell size={12} strokeWidth={2.5} />,
+                icon: <Banknote size={12} strokeWidth={2.5} />,
               }
-            : readyCount > 0
+            : billAsked
               ? {
-                  label: "Order ready",
-                  className: "bg-emerald-400/15 text-emerald-300",
-                  icon: <Check size={12} strokeWidth={3} />,
+                  label: "Bill asked",
+                  className: "bg-[#d7a45a] text-[#0b0b0d]",
+                  icon: <Bell size={12} strokeWidth={2.5} />,
                 }
-              : null;
+              : readyCount > 0
+                ? {
+                    label: "Order ready",
+                    className: "bg-emerald-400/15 text-emerald-300",
+                    icon: <Check size={12} strokeWidth={3} />,
+                  }
+                : null;
 
         return (
           <li key={table.id}>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 
+import PaymentSettings from "@/components/settings/payment-settings";
 import { createClient } from "@/lib/supabase/client";
 
 export default function SettingsPage() {
@@ -133,6 +134,8 @@ export default function SettingsPage() {
                 </button>
               </div>
             )}
+
+            {!loading && <PaymentSettings />}
           </div>
         </div>
       </div>

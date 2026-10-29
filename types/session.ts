@@ -1,3 +1,5 @@
+import { PaymentMethod } from "@/types/payment";
+
 export type TableGuest = {
   id: string;
   name: string;
@@ -18,5 +20,6 @@ export type TableSession = {
   status: "open" | "billing" | "closed";
 
   billRequested: boolean;
-  paymentStatus: "unpaid" | "paid";
+  paymentStatus: "unpaid" | "claimed" | "paid";
+  paymentMethod: PaymentMethod | null;
 };

@@ -13,6 +13,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { Order, OrderStatus } from "@/types/order";
 import type { TableSession } from "@/types/session";
+import type { PaymentMethod, PaymentOptions } from "@/types/payment";
 import type { MenuCategory, MenuItem } from "@/types/menu";
 import type { RestaurantTable } from "@/types/table";
 import type { CartItem } from "@/types/cart";
@@ -112,6 +113,7 @@ async function fetchCustomerView(
       status: TableSession["status"];
       bill_requested: boolean;
       payment_status: TableSession["paymentStatus"];
+      payment_method?: PaymentMethod | null;
       started_at: string;
       table_name: string;
       guests: { id: string; name: string; sort_order: number }[];
@@ -178,6 +180,7 @@ async function fetchCustomerView(
         status: raw.session.status,
         billRequested: raw.session.bill_requested,
         paymentStatus: raw.session.payment_status,
+        paymentMethod: raw.session.payment_method ?? null,
       }
     : null;
 
@@ -218,6 +221,37 @@ async function fetchCustomerView(
   return { table, session, orders };
 }
 
+const DEFAULT_PAYMENT_OPTIONS: PaymentOptions = {
+  upiId: null,
+  payeeName: "",
+  qrUrl: null,
+  acceptsCash: true,
+};
+
+function toPaymentOptions(
+  supabase: SupabaseClient,
+  raw: unknown,
+): PaymentOptions {
+  if (!raw || typeof raw !== "object") return DEFAULT_PAYMENT_OPTIONS;
+
+  const r = raw as {
+    upi_id: string | null;
+    payee_name: string | null;
+    qr_path: string | null;
+    accepts_cash: boolean;
+  };
+
+  return {
+    upiId: r.upi_id,
+    payeeName: r.payee_name ?? "",
+    qrUrl: r.qr_path
+      ? supabase.storage.from("payment-qr").getPublicUrl(r.qr_path).data
+          .publicUrl
+      : null,
+    acceptsCash: r.accepts_cash !== false,
+  };
+}
+
 type CustomerDataContextValue = {
   loading: boolean;
   /** False when the café's service is paused: it takes no new orders. */
@@ -225,6 +259,7 @@ type CustomerDataContextValue = {
   restaurantId: string | null;
   restaurantName: string;
   taxRate: number;
+  paymentOptions: PaymentOptions;
   orders: Order[];
   sessions: TableSession[];
   menuItems: MenuItem[];
@@ -240,7 +275,11 @@ type CustomerDataContextValue = {
   ) => Promise<PlaceOrderResult>;
   requestBillAsCustomer: (sessionId: string) => Promise<void>;
   cancelOrderAsCustomer: (orderId: string) => Promise<void>;
-  confirmPaymentAsCustomer: (sessionId: string) => Promise<void>;
+  /** The customer says they paid. Only staff can mark the bill paid. */
+  claimPaymentAsCustomer: (
+    sessionId: string,
+    method: "upi" | "cash",
+  ) => Promise<boolean>;
 };
 
 const CustomerDataContext = createContext<CustomerDataContextValue | null>(
@@ -260,6 +299,9 @@ export function CustomerDataProvider({
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState("");
   const [taxRate, setTaxRate] = useState(0);
+  const [paymentOptions, setPaymentOptions] = useState<PaymentOptions>(
+    DEFAULT_PAYMENT_OPTIONS,
+  );
   const [loading, setLoading] = useState(true);
   const [acceptingOrders, setAcceptingOrders] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -317,6 +359,13 @@ export function CustomerDataProvider({
 
       if (ignore) return;
 
+      const { data: pay } = await supabase.rpc("payment_options", {
+        p_restaurant_slug: restaurantSlug,
+      });
+
+      if (ignore) return;
+
+      setPaymentOptions(toPaymentOptions(supabase, pay));
       setAcceptingOrders(isOpen !== false);
       setRestaurantId(restaurant.id);
       setRestaurantName(restaurant.name);
@@ -446,10 +495,14 @@ export function CustomerDataProvider({
     [supabase, refetch],
   );
 
-  const confirmPaymentAsCustomer = useCallback(
-    async (sessionId: string) => {
-      await supabase.rpc("confirm_payment", { p_session_id: sessionId });
+  const claimPaymentAsCustomer = useCallback(
+    async (sessionId: string, method: "upi" | "cash") => {
+      const { error } = await supabase.rpc("claim_payment", {
+        p_session_id: sessionId,
+        p_method: method,
+      });
       await refetch();
+      return !error;
     },
     [supabase, refetch],
   );
@@ -462,6 +515,7 @@ export function CustomerDataProvider({
         restaurantId,
         restaurantName,
         taxRate,
+        paymentOptions,
         orders,
         sessions,
         menuItems,
@@ -470,7 +524,7 @@ export function CustomerDataProvider({
         placeOrder,
         requestBillAsCustomer,
         cancelOrderAsCustomer,
-        confirmPaymentAsCustomer,
+        claimPaymentAsCustomer,
       }}
     >
       {children}

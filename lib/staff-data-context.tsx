@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { BusinessDay } from "@/lib/business-day";
 import type { Order, OrderStatus } from "@/types/order";
 import type { TableSession } from "@/types/session";
+import type { PaymentMethod } from "@/types/payment";
 import type { RestaurantTable, TablePosition, TableShape } from "@/types/table";
 
 // STAFF-ONLY data layer — used by the authenticated /dashboard. Kept
@@ -63,7 +64,7 @@ async function fetchSessions(
   const { data } = await supabase
     .from("table_sessions")
     .select(
-      "id, table_id, status, bill_requested, payment_status, started_at, restaurant_tables(name), session_guests(id, name, sort_order), orders(id)",
+      "id, table_id, status, bill_requested, payment_status, payment_method, started_at, restaurant_tables(name), session_guests(id, name, sort_order), orders(id)",
     )
     .eq("restaurant_id", restaurantId)
     .neq("status", "closed");
@@ -83,6 +84,7 @@ async function fetchSessions(
     status: s.status,
     billRequested: s.bill_requested,
     paymentStatus: s.payment_status,
+    paymentMethod: s.payment_method,
   }));
 }
 
@@ -230,7 +232,9 @@ type StaffDataContextValue = {
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
   cancelOrder: (orderId: string) => Promise<void>;
   validateOrder: (orderId: string, code: string) => Promise<boolean>;
-  markSessionPaid: (sessionId: string) => Promise<void>;
+  markSessionPaid: (sessionId: string, method: PaymentMethod) => Promise<void>;
+  /** The guest said they paid but nothing arrived: back to unpaid. */
+  markSessionUnpaid: (sessionId: string) => Promise<void>;
   closeTableSession: (tableId: string) => Promise<void>;
   updateSessionGuestCount: (
     sessionId: string,
@@ -540,10 +544,21 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
   );
 
   const markSessionPaid = useCallback(
+    async (sessionId: string, method: PaymentMethod) => {
+      await supabase
+        .from("table_sessions")
+        .update({ payment_status: "paid", payment_method: method })
+        .eq("id", sessionId);
+      await refetch();
+    },
+    [supabase, refetch],
+  );
+
+  const markSessionUnpaid = useCallback(
     async (sessionId: string) => {
       await supabase
         .from("table_sessions")
-        .update({ payment_status: "paid" })
+        .update({ payment_status: "unpaid" })
         .eq("id", sessionId);
       await refetch();
     },
@@ -752,6 +767,7 @@ export function StaffDataProvider({ children }: { children: ReactNode }) {
         cancelOrder,
         validateOrder,
         markSessionPaid,
+        markSessionUnpaid,
         closeTableSession,
         updateSessionGuestCount,
         addTables,

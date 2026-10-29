@@ -5,6 +5,7 @@ import { Check, Receipt, Users, X } from "lucide-react";
 
 import type { Order } from "@/types/order";
 import type { TableSession } from "@/types/session";
+import type { PaymentMethod } from "@/types/payment";
 
 import { calculateBill, calculateGuestShares } from "@/lib/bill";
 import { useStaffData } from "@/lib/staff-data-context";
@@ -13,7 +14,8 @@ type BillSheetProps = {
   session: TableSession | null;
   orders: Order[];
   onClose: () => void;
-  onMarkPaid: (sessionId: string) => void;
+  onMarkPaid: (sessionId: string, method: PaymentMethod) => void;
+  onMarkUnpaid: (sessionId: string) => void;
 };
 
 export default function BillSheet({
@@ -21,6 +23,7 @@ export default function BillSheet({
   orders,
   onClose,
   onMarkPaid,
+  onMarkUnpaid,
 }: BillSheetProps) {
   const { taxRate } = useStaffData();
   const [splitMode, setSplitMode] = useState<"equal" | "itemized">("equal");
@@ -50,6 +53,9 @@ export default function BillSheet({
   );
 
   const isPaid = session.paymentStatus === "paid";
+  const isClaimed = session.paymentStatus === "claimed";
+  const taxLabel = `${Math.round(taxRate * 1000) / 10}%`;
+  const methodLabel = { upi: "UPI", cash: "cash", card: "card" } as const;
 
   return (
     <div className="fixed inset-0 z-110">
@@ -197,7 +203,7 @@ export default function BillSheet({
             </div>
 
             <div className="mt-3 flex justify-between text-xs">
-              <span className="text-white/35">Tax · 5%</span>
+              <span className="text-white/35">Tax · {taxLabel}</span>
 
               <span className="text-white/60">
                 ₹{bill.tax.toLocaleString("en-IN")}
@@ -293,21 +299,65 @@ export default function BillSheet({
             <div className="flex items-center justify-center gap-2 rounded-full border border-[#d7a45a]/25 bg-[#d7a45a]/8 py-4 text-sm text-[#d7a45a]">
               <Check size={16} />
               Paid
+              {session.paymentMethod
+                ? ` · ${methodLabel[session.paymentMethod]}`
+                : ""}
             </div>
-          ) : (
+          ) : isClaimed ? (
             <>
+              <p className="text-center text-sm text-[#d7a45a]">
+                {session.paymentMethod === "cash"
+                  ? `Guest is paying ₹${bill.total.toLocaleString("en-IN")} in cash`
+                  : `Guest says they paid ₹${bill.total.toLocaleString("en-IN")} by UPI`}
+              </p>
+              <p className="mt-1 text-center text-[10px] text-white/30">
+                {session.paymentMethod === "cash"
+                  ? "Collect the cash, then confirm."
+                  : "Check your UPI app for the payment before you confirm."}
+              </p>
+
               <button
                 type="button"
-                onClick={() => onMarkPaid(session.id)}
-                className="flex h-13 w-full items-center justify-between rounded-full bg-[#f5f2ea] px-5 text-xs font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
+                onClick={() =>
+                  onMarkPaid(session.id, session.paymentMethod ?? "cash")
+                }
+                className="mt-4 flex h-13 w-full items-center justify-center rounded-full bg-[#f5f2ea] px-5 text-xs font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
               >
-                <span>Record payment received</span>
-                <span>₹{bill.total.toLocaleString("en-IN")}</span>
+                {session.paymentMethod === "cash"
+                  ? "Cash received"
+                  : "Payment received"}
               </button>
 
+              <button
+                type="button"
+                onClick={() => onMarkUnpaid(session.id)}
+                className="mt-2 flex h-11 w-full items-center justify-center rounded-full border border-white/10 text-xs text-white/55 transition hover:bg-white/5"
+              >
+                Not received
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-center text-xs text-white/45">
+                Record payment received · ₹{bill.total.toLocaleString("en-IN")}
+              </p>
+
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {(["cash", "upi", "card"] as const).map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => onMarkPaid(session.id, method)}
+                    className="flex h-13 items-center justify-center rounded-full bg-[#f5f2ea] text-xs font-medium capitalize text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
+                  >
+                    {methodLabel[method]}
+                  </button>
+                ))}
+              </div>
+
               <p className="mt-3 text-center text-[10px] text-white/15">
-                Use this when a guest pays by cash or card in person. Online
-                payment happens on the customer&apos;s own screen.
+                Guests can also pay from their own screen. You will see it here
+                and on the table before you confirm.
               </p>
             </>
           )}

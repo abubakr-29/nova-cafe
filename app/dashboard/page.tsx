@@ -44,6 +44,7 @@ export default function DashboardPage() {
     cancelOrder,
     requestBill,
     markSessionPaid,
+    markSessionUnpaid,
     validateOrder,
     closeTableSession,
     updateSessionGuestCount,
@@ -143,9 +144,20 @@ export default function DashboardPage() {
         openSessions
           .filter(
             (session) =>
-              session.billRequested && session.paymentStatus === "unpaid",
+              session.billRequested && session.paymentStatus !== "paid",
           )
           .map((session) => session.tableId),
+      ),
+    [openSessions],
+  );
+
+  // Guests who say they paid: staff still have to confirm it.
+  const claimedTables = useMemo(
+    () =>
+      new Map(
+        openSessions
+          .filter((session) => session.paymentStatus === "claimed")
+          .map((session) => [session.tableId, session.paymentMethod] as const),
       ),
     [openSessions],
   );
@@ -325,6 +337,7 @@ export default function DashboardPage() {
               onSelectTable={handleSelectTable}
               billRequestedTableIds={billRequestedTableIds}
               paidTableIds={paidTableIds}
+              claimedTables={claimedTables}
               now={now}
             />
           </>
@@ -369,6 +382,7 @@ export default function DashboardPage() {
             setSessionTableId(null);
           }}
           onMarkPaid={markSessionPaid}
+          onMarkUnpaid={markSessionUnpaid}
         />
       )}
     </div>

@@ -77,7 +77,7 @@ function MenuPage({ tableId }: { tableId: string }) {
     placeOrder,
     cancelOrderAsCustomer,
     requestBillAsCustomer,
-    confirmPaymentAsCustomer,
+    claimPaymentAsCustomer,
   } = useCustomerData();
 
   const currentTable = tables.find((table) => table.id === tableId) ?? null;
@@ -352,13 +352,17 @@ function MenuPage({ tableId }: { tableId: string }) {
         </header>
 
         {currentSession?.billRequested &&
-          currentSession.paymentStatus === "unpaid" && (
+          currentSession.paymentStatus !== "paid" && (
             <button
               type="button"
               onClick={() => setBillViewOpen(true)}
               className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between rounded-2xl border border-[#d7a45a]/25 bg-[#d7a45a]/8 px-5 py-4 text-left transition hover:bg-[#d7a45a]/12"
             >
-              <span className="text-xs text-[#d7a45a]">Your bill is ready</span>
+              <span className="text-xs text-[#d7a45a]">
+                {currentSession.paymentStatus === "claimed"
+                  ? "Waiting for the café to confirm"
+                  : "Your bill is ready"}
+              </span>
               <span className="text-xs font-medium text-[#d7a45a]">
                 View bill →
               </span>
@@ -443,7 +447,9 @@ function MenuPage({ tableId }: { tableId: string }) {
           session={currentSession}
           orders={orders}
           onClose={() => setBillViewOpen(false)}
-          onPay={() => confirmPaymentAsCustomer(currentSession.id)}
+          onClaim={(method) =>
+            claimPaymentAsCustomer(currentSession.id, method)
+          }
         />
       )}
     </main>
