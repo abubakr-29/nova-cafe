@@ -83,3 +83,17 @@ body {
     color: #000;
   }
 }
+
+.font-display {
+  font-family: "Gloock", Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+
+.font-body {
+  font-family:
+    "Manrope Variable",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}

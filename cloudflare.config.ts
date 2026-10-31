@@ -1,10 +1,6 @@
 import { bindings, defineConfig, defineWorker } from "cf/config";
 
 export default defineConfig({
-  // Your Cloudflare account ID (Cloudflare dashboard > Workers & Pages > right side).
-  // You can also set it as the CLOUDFLARE_ACCOUNT_ID environment variable.
-  settings: { accountId: "302af36d92a2c0c2c7ce08aa79678eef" },
-
   worker: defineWorker({
     // The Worker's name. It also names the free test address (tavro.<you>.workers.dev).
     name: "tavro",
@@ -14,10 +10,12 @@ export default defineConfig({
     // behind India, and a date "in the future" is rejected.
     compatibilityDate: "2026-10-30",
     compatibilityFlags: ["nodejs_compat"],
+    workersDev: false,
+    previewUrls: false,
 
     // Your own address, once you have chosen the name. Leave it out for the
     // first test deploy. Example: domains: ["yourname.famedia.co.in"],
-    // domains: [],
+    domains: ["tavro.famedia.co.in"],
 
     assets: {
       htmlHandling: "none",
