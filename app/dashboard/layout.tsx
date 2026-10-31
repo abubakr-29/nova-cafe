@@ -18,6 +18,7 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 import NoticeToast from "@/components/ui/notice-toast";
+import { BRAND } from "@/lib/brand";
 import { StaffDataProvider, useStaffData } from "@/lib/staff-data-context";
 
 const baseNavItems = [
@@ -276,9 +277,9 @@ function PausedScreen({ onSignOut }: { onSignOut: () => void }) {
         </h1>
 
         <p className="mt-4 text-sm leading-relaxed text-white/50">
-          Ordering and the dashboard are switched off for now. Please contact
-          NOVA to get your service switched back on. Your data is safe and will
-          be here when you return.
+          Ordering and the dashboard are switched off for now. Please contact{" "}
+          {BRAND.company} to get your service switched back on. Your data is
+          safe and will be here when you return.
         </p>
 
         <div className="mt-8 flex items-center justify-center gap-3">

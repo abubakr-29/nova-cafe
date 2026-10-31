@@ -1,4 +1,4 @@
-# NOVA café: data policy
+# Tavro: data policy
 
 Short rules for how orders, photos and test data are handled.
 
