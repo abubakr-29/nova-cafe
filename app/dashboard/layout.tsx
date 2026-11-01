@@ -158,7 +158,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={handleSignOut}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/35 transition hover:bg-white/4 hover:text-white/70"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/35 transition hover:bg-white/4 hover:text-white/70 cursor-pointer"
             >
               <LogOut size={16} />
               <span>Sign out</span>
@@ -243,7 +243,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
                     setMobileNavOpen(false);
                     handleSignOut();
                   }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/35 transition hover:bg-white/4 hover:text-white/70"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/35 transition hover:bg-white/4 hover:text-white/70 cursor-pointer"
                 >
                   <LogOut size={16} />
                   <span>Sign out</span>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
 import { ExternalLink, Plus, Printer, Trash2 } from "lucide-react";
 
+import { PageHeader, pageShell } from "@/components/dashboard/page-header";
 import { useStaffData } from "@/lib/staff-data-context";
 import { tableUrl, useSiteUrl } from "@/lib/site-url";
 import {
@@ -113,22 +114,21 @@ export default function TablesPage() {
 
   return (
     <>
-      <header className="flex h-20 items-center justify-between border-b border-white/[0.07] px-6 md:px-10">
-        <div>
-          <p className="text-xs text-white/25">Setup</p>
-          <p className="mt-1 text-sm text-white/60">Tables &amp; QR codes</p>
-        </div>
+      <div className={`${pageShell("default")} space-y-8`}>
+        <PageHeader
+          title="Tables"
+          subtitle="Add tables, rename them, and print the QR codes guests scan."
+          actions={
+            <Link
+              href="/dashboard/tables/qr"
+              className="flex h-11 items-center gap-2 rounded-full bg-[#f5f2ea] px-5 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.02]"
+            >
+              <Printer size={15} />
+              Print QR codes
+            </Link>
+          }
+        />
 
-        <Link
-          href="/dashboard/tables/qr"
-          className="flex items-center gap-2 rounded-full bg-[#f5f2ea] px-4 py-2.5 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.02]"
-        >
-          <Printer size={15} />
-          Print QR codes
-        </Link>
-      </header>
-
-      <div className="mx-auto max-w-4xl space-y-8 px-6 py-8 md:px-10">
         {/* Add tables */}
         <section className="rounded-3xl border border-white/[0.07] bg-white/2 p-6">
           <h2 className="text-sm font-medium">Add tables</h2>

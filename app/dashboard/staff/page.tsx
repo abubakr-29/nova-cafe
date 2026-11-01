@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Check, ChevronDown, UserPlus, X } from "lucide-react";
 
+import { PageHeader, pageShell } from "@/components/dashboard/page-header";
+
 type StaffMember = {
   id: string;
   full_name: string;
@@ -123,19 +125,16 @@ export default function StaffPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10 md:px-10">
-      <p className="text-xs uppercase tracking-[0.25em] text-[#d7a45a]">
-        Staff
-      </p>
-
-      <h1 className="mt-2 text-3xl font-medium tracking-[-0.03em] text-white">
-        Manage staff accounts
-      </h1>
+    <div className={pageShell("default")}>
+      <PageHeader
+        title="Staff"
+        subtitle="Create and manage the accounts your team signs in with."
+      />
 
       {/* Add form */}
       <form
         onSubmit={handleAdd}
-        className="mt-8 rounded-3xl border border-white/8 bg-white/2.5 p-6"
+        className="rounded-3xl border border-white/8 bg-white/2.5 p-6"
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <input

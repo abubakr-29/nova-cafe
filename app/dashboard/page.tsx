@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { PageHeader, pageShell } from "@/components/dashboard/page-header";
 import BillSheet from "@/components/dashboard/bill-sheet";
 import StaleTables, {
   type StaleTable,
@@ -231,14 +232,8 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-375 px-5 py-6 md:px-10 md:py-8">
-      <div className="flex items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          {getGreeting()}
-        </h1>
-
-        <p className="pb-0.5 text-sm text-white/40">{getFormattedToday()}</p>
-      </div>
+    <div className={pageShell("wide")}>
+      <PageHeader title={getGreeting()} subtitle={getFormattedToday()} />
 
       {staleTables.length > 0 && (
         <div className="mt-5">

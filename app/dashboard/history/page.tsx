@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { PageHeader, pageShell } from "@/components/dashboard/page-header";
 import DayPicker from "@/components/ui/day-picker";
 import { formatDay, formatDayRelative, shiftDay } from "@/lib/business-day";
 import { useStaffData, type DayOrders } from "@/lib/staff-data-context";
@@ -74,15 +75,11 @@ export default function HistoryPage() {
   const atToday = !today || !shown || shown >= today;
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-6 md:px-10 md:py-8">
-      <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-        History
-      </h1>
-
-      <p className="mt-1 text-sm text-white/45">
-        Look back at any day. A day runs from opening time, so late-night orders
-        stay with the evening they belong to.
-      </p>
+    <div className={pageShell("default")}>
+      <PageHeader
+        title="History"
+        subtitle="Look back at any day. A day runs from opening time, so late-night orders stay with the evening they belong to."
+      />
 
       {/* Day switcher */}
       <div className="mt-6 flex flex-wrap items-center gap-2">

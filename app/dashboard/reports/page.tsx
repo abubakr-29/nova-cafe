@@ -3,6 +3,7 @@
 import { CalendarDays, Download } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { PageHeader, pageShell } from "@/components/dashboard/page-header";
 import DayPicker from "@/components/ui/day-picker";
 import { formatDay, shiftDay } from "@/lib/business-day";
 import { downloadCsv, toCsv } from "@/lib/csv";
@@ -249,15 +250,11 @@ export default function ReportsPage() {
   }, [report]);
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-6 md:px-10 md:py-8">
-      <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-        Reports
-      </h1>
-
-      <p className="mt-1 text-sm text-white/45">
-        Sales by business day. Cancelled and unconfirmed orders are not counted
-        as sales.
-      </p>
+    <div className={pageShell("default")}>
+      <PageHeader
+        title="Reports"
+        subtitle="Sales by business day. Cancelled and unconfirmed orders are not counted as sales."
+      />
 
       <div className="mt-6 flex flex-wrap items-center gap-2">
         {PRESETS.map((p) => (

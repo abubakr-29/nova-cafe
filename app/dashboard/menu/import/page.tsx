@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Download, FileUp } from "lucide-react";
+import { Download, FileUp } from "lucide-react";
 
+import { PageHeader, pageShell } from "@/components/dashboard/page-header";
 import DietDot from "@/components/menu/diet-dot";
 import { formatPrice } from "@/lib/format-price";
 import {
@@ -13,7 +14,6 @@ import {
   toRpcPayload,
   type ImportRow,
 } from "@/lib/menu-import";
-import { useStaffData } from "@/lib/staff-data-context";
 import { createClient } from "@/lib/supabase/client";
 
 type Existing = {
@@ -35,7 +35,6 @@ const buttonClass =
   "flex h-10 items-center gap-2 rounded-xl border border-white/10 px-4 text-xs text-white/60 transition hover:bg-white/5 hover:text-white";
 
 export default function ImportMenuPage() {
-  const { restaurantName } = useStaffData();
   const [supabase] = useState(() => createClient());
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -196,22 +195,13 @@ export default function ImportMenuPage() {
 
   return (
     <>
-      <header className="flex h-20 items-center justify-between border-b border-white/[0.07] px-6 md:px-10">
-        <div>
-          <p className="text-xs text-white/25">{restaurantName}</p>
-          <p className="mt-1 text-sm text-white/60">Import menu</p>
-        </div>
+      <div className={`${pageShell("default")} space-y-6`}>
+        <PageHeader
+          title="Import menu"
+          backHref="/dashboard/menu"
+          backLabel="Back to menu"
+        />
 
-        <Link
-          href="/dashboard/menu"
-          className="flex items-center gap-2 text-xs text-white/40 transition hover:text-white/70"
-        >
-          <ArrowLeft size={14} />
-          Back to menu
-        </Link>
-      </header>
-
-      <div className="mx-auto max-w-4xl space-y-6 px-6 py-8 md:px-10">
         {result && (
           <div className="rounded-3xl border border-emerald-400/25 bg-emerald-400/[0.07] p-6">
             <p className="text-sm font-medium text-emerald-300">

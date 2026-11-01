@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { ArrowLeft, Camera, Check, ImagePlus, X } from "lucide-react";
+import { Camera, Check, ImagePlus, X } from "lucide-react";
 
+import { PageHeader, pageShell } from "@/components/dashboard/page-header";
 import { thumbnailUrl } from "@/lib/menu-image";
 import { matchPhoto, type PhotoMatch } from "@/lib/photo-matching";
 import { uploadMenuPhoto } from "@/lib/photo-upload";
@@ -32,7 +32,7 @@ type Entry = {
 const CONCURRENCY = 3;
 
 export default function MenuPhotosPage() {
-  const { restaurantId, restaurantName } = useStaffData();
+  const { restaurantId } = useStaffData();
   const [supabase] = useState(() => createClient());
 
   const [dishes, setDishes] = useState<Dish[]>([]);
@@ -306,22 +306,13 @@ export default function MenuPhotosPage() {
 
   return (
     <>
-      <header className="flex h-20 items-center justify-between border-b border-white/[0.07] px-6 md:px-10">
-        <div>
-          <p className="text-xs text-white/25">{restaurantName}</p>
-          <p className="mt-1 text-sm text-white/60">Menu photos</p>
-        </div>
+      <div className={`${pageShell("default")} space-y-6`}>
+        <PageHeader
+          title="Menu photos"
+          backHref="/dashboard/menu"
+          backLabel="Back to menu"
+        />
 
-        <Link
-          href="/dashboard/menu"
-          className="flex items-center gap-2 text-xs text-white/40 transition hover:text-white/70"
-        >
-          <ArrowLeft size={14} />
-          Back to menu
-        </Link>
-      </header>
-
-      <div className="mx-auto max-w-4xl space-y-6 px-6 py-8 md:px-10">
         {loadFailed ? (
           <p role="alert" className="text-sm text-red-300/80">
             Couldn&apos;t load your menu. Please refresh the page.

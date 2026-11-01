@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { Check, Minus, Plus, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Check, Minus, Plus, ShoppingBag } from "lucide-react";
 
 import CartDrawer from "@/components/cart/cart-drawer";
+import { PageHeader, pageShell } from "@/components/dashboard/page-header";
 import MenuBrowser from "@/components/menu/menu-browser";
 import MenuItemSheet from "@/components/menu/menu-item-sheet";
 import {
@@ -42,7 +43,7 @@ type Menu = { categories: MenuCategory[]; items: MenuItem[] };
 type Sent = { orderNumber: string; tableName: string };
 
 function NewOrderScreen() {
-  const { restaurantId, restaurantName, tables, sessions } = useStaffData();
+  const { restaurantId, tables, sessions } = useStaffData();
   const searchParams = useSearchParams();
   const now = useNow();
   const [supabase] = useState(() => createClient());
@@ -280,27 +281,13 @@ function NewOrderScreen() {
 
   return (
     <>
-      <header className="flex h-20 items-center justify-between border-b border-white/[0.07] px-6 md:px-10">
-        <div>
-          <p className="text-xs text-white/25">{restaurantName}</p>
-          <p className="mt-1 text-sm text-white/60">Take an order</p>
-        </div>
-
-        {table && !sent && (
-          <button
-            type="button"
-            onClick={() => pickTable(null)}
-            className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/60 transition hover:bg-white/5 hover:text-white cursor-pointer"
-          >
-            Change table
-          </button>
-        )}
-      </header>
-
       {/* ---- 1. choose a table ---- */}
       {!table && (
-        <div className="mx-auto max-w-4xl px-6 py-8 md:px-10">
-          <h1 className="text-sm font-medium">Which table is this for?</h1>
+        <div className={pageShell("default")}>
+          <PageHeader
+            title="Take an order"
+            subtitle="Which table is this for?"
+          />
 
           {sortedTables.length === 0 ? (
             <p className="mt-6 text-sm text-white/40">
@@ -388,6 +375,15 @@ function NewOrderScreen() {
       {table && !sent && (
         <>
           <div className="mx-auto max-w-2xl px-4 pt-5">
+            <button
+              type="button"
+              onClick={() => pickTable(null)}
+              className="mb-3 flex cursor-pointer items-center gap-1.5 text-xs text-white/40 transition hover:text-white/70"
+            >
+              <ArrowLeft size={13} />
+              Change table
+            </button>
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-lg font-medium">{table.name}</p>
