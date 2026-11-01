@@ -2,9 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ImageIcon,
   MoreHorizontal,
   Pencil,
@@ -72,6 +74,14 @@ const inputClass =
 const softButton =
   "flex h-11 items-center justify-center gap-2 rounded-full border border-white/10 px-5 text-sm text-white/60 transition hover:bg-white/5 hover:text-white cursor-pointer";
 
+/** Which edges of the category chip row have more chips hidden past them. */
+function chipEdgesOf(el: HTMLElement) {
+  return {
+    left: el.scrollLeft > 4,
+    right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+  };
+}
+
 export default function DashboardMenuPage() {
   const { restaurantSlug } = useStaffData();
   const [supabase] = useState(() => createClient());
@@ -84,6 +94,12 @@ export default function DashboardMenuPage() {
   const [soldOutOnly, setSoldOutOnly] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const chipsInnerRef = useRef<HTMLDivElement>(null);
+  const highlightLocked = useRef(false);
+  const [chipEdges, setChipEdges] = useState({ left: false, right: false });
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
 
   const [newCategoryName, setNewCategoryName] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
@@ -111,20 +127,21 @@ export default function DashboardMenuPage() {
     return () => clearTimeout(timer);
   }, [saveError]);
 
-  // Escape closes the "More" menu and the item editor.
+  // Escape closes the "More" menu, the categories sheet and the item editor.
   useEffect(() => {
-    if (!editorOpen && !moreOpen) return;
+    if (!editorOpen && !moreOpen && !manageOpen) return;
 
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setEditorOpen(false);
         setMoreOpen(false);
+        setManageOpen(false);
       }
     }
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editorOpen, moreOpen]);
+  }, [editorOpen, moreOpen, manageOpen]);
 
   async function loadData() {
     const { data: rid } = await supabase.rpc("current_restaurant_id");
@@ -478,9 +495,24 @@ export default function DashboardMenuPage() {
   }
 
   function scrollToSection(id: string) {
+    setActiveSectionId(id);
+    // Keep the tapped chip highlighted while the page scrolls to it.
+    highlightLocked.current = true;
+    setTimeout(() => {
+      highlightLocked.current = false;
+    }, 1000);
     document
       .getElementById(`cat-${id}`)
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function slideChips(direction: -1 | 1) {
+    const scroller = chipsRef.current;
+    if (!scroller) return;
+    scroller.scrollBy({
+      left: direction * scroller.clientWidth * 0.7,
+      behavior: "smooth",
+    });
   }
 
   // ----- what to show -----
@@ -513,6 +545,99 @@ export default function DashboardMenuPage() {
   const soldOutCount = items.filter((item) => !item.available).length;
   const noCategories = !loading && categories.length === 0;
   const noItems = !loading && categories.length > 0 && items.length === 0;
+  const showBar = !loading && !noCategories;
+  const visibleKey = visibleSections.map((section) => section.id).join("|");
+  const chipsKey = sections.map((section) => section.id).join("|");
+
+  // Show the fade and arrow on a side only while chips are hidden past it.
+  useEffect(() => {
+    const scroller = chipsRef.current;
+    const inner = chipsInnerRef.current;
+    if (!showBar || !scroller || !inner) return;
+
+    const update = () => setChipEdges(chipEdgesOf(scroller));
+    const observer = new ResizeObserver(update);
+    observer.observe(scroller);
+    observer.observe(inner);
+
+    return () => observer.disconnect();
+  }, [showBar, chipsKey]);
+
+  // Highlight the category you are currently scrolled to.
+  useEffect(() => {
+    if (!showBar || visibleKey === "") return;
+
+    const ids = visibleKey.split("|");
+    const firstSection = document.getElementById(`cat-${ids[0]}`);
+    if (!firstSection) return;
+
+    // The page scrolls inside a container, not the window: find it.
+    let scroller: HTMLElement | null = firstSection.parentElement;
+    while (scroller) {
+      const overflowY = getComputedStyle(scroller).overflowY;
+      if (overflowY === "auto" || overflowY === "scroll") break;
+      scroller = scroller.parentElement;
+    }
+    const target: HTMLElement | Window = scroller ?? window;
+
+    let frame = 0;
+
+    function update() {
+      frame = 0;
+      if (highlightLocked.current) return;
+
+      const bar = document.querySelector("[data-menu-bar]");
+      const line = (bar?.getBoundingClientRect().bottom ?? 0) + 24;
+
+      let current = ids[0];
+      for (const id of ids) {
+        const el = document.getElementById(`cat-${id}`);
+        if (el && el.getBoundingClientRect().top <= line) current = id;
+      }
+
+      // At the very bottom the last sections can't reach the top line.
+      if (
+        scroller &&
+        scroller.scrollTop > 0 &&
+        scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4
+      ) {
+        current = ids[ids.length - 1];
+      }
+
+      setActiveSectionId(current);
+    }
+
+    function onScroll() {
+      if (!frame) frame = requestAnimationFrame(update);
+    }
+
+    target.addEventListener("scroll", onScroll, { passive: true });
+    frame = requestAnimationFrame(update);
+
+    return () => {
+      target.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [showBar, visibleKey]);
+
+  // Slide the chip row so the highlighted category stays in view.
+  useEffect(() => {
+    const scroller = chipsRef.current;
+    if (!scroller || !activeSectionId) return;
+
+    const chip = scroller.querySelector<HTMLElement>(
+      `[data-chip="${activeSectionId}"]`,
+    );
+    if (!chip) return;
+
+    scroller.scrollTo({
+      left: Math.max(
+        0,
+        chip.offsetLeft - (scroller.clientWidth - chip.offsetWidth) / 2,
+      ),
+      behavior: "smooth",
+    });
+  }, [activeSectionId]);
 
   function renderCard(item: MenuItemRow) {
     return (
@@ -608,7 +733,7 @@ export default function DashboardMenuPage() {
         }
       />
 
-      {saveError && !editorOpen && (
+      {saveError && !editorOpen && !manageOpen && (
         <div
           role="alert"
           className="mb-4 rounded-xl border border-red-400/20 bg-red-950/40 px-4 py-3 text-sm text-red-200"
@@ -665,7 +790,10 @@ export default function DashboardMenuPage() {
       ) : (
         <>
           {/* Search, filter and category chips stay in view while scrolling */}
-          <div className="sticky top-0 z-20 -mx-5 border-b border-white/[0.07] bg-[#0b0b0d]/95 px-5 pb-3 pt-2 backdrop-blur md:-mx-10 md:px-10">
+          <div
+            data-menu-bar
+            className="sticky top-0 z-20 -mx-5 border-b border-white/[0.07] bg-[#0b0b0d]/95 px-5 pb-3 pt-2 backdrop-blur md:-mx-10 md:px-10"
+          >
             <div className="flex gap-2">
               <div className="relative min-w-0 flex-1">
                 <Search
@@ -706,157 +834,81 @@ export default function DashboardMenuPage() {
             </div>
 
             <div className="mt-2.5 flex items-center gap-2">
-              <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-0.5 scrollbar-none [&::-webkit-scrollbar]:hidden">
-                {sections.map((section) => (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() => scrollToSection(section.id)}
-                    className="shrink-0 rounded-full border border-white/10 px-3.5 py-1.5 text-xs text-white/60 transition hover:bg-white/5 hover:text-white cursor-pointer"
-                  >
-                    {section.name}
-                    <span className="ml-1.5 text-white/30">
-                      {section.all.length}
-                    </span>
-                  </button>
-                ))}
+              {/* Slides sideways; fades and arrows show when more are hidden */}
+              <div className="relative min-w-0 flex-1">
+                <div
+                  ref={chipsRef}
+                  onScroll={(e) => setChipEdges(chipEdgesOf(e.currentTarget))}
+                  className="relative overflow-x-auto scrollbar-none [&::-webkit-scrollbar]:hidden"
+                >
+                  <div ref={chipsInnerRef} className="flex w-max gap-2 pr-8">
+                    {sections.map((section) => {
+                      const active = activeSectionId === section.id;
+
+                      return (
+                        <button
+                          key={section.id}
+                          type="button"
+                          data-chip={section.id}
+                          onClick={() => scrollToSection(section.id)}
+                          aria-current={active ? "true" : undefined}
+                          className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs transition cursor-pointer ${
+                            active
+                              ? "border-[#d7a45a]/60 bg-[#d7a45a]/15 text-[#d7a45a]"
+                              : "border-white/10 text-white/60 hover:bg-white/5 hover:text-white"
+                          }`}
+                        >
+                          {section.name}
+                          <span
+                            className={`ml-1.5 ${active ? "text-[#d7a45a]/60" : "text-white/30"}`}
+                          >
+                            {section.all.length}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {chipEdges.left && (
+                  <>
+                    <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-linear-to-r from-[#0b0b0d] to-transparent" />
+                    <button
+                      type="button"
+                      onClick={() => slideChips(-1)}
+                      aria-label="Show earlier categories"
+                      className="absolute left-0 top-1/2 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#151519] text-white/70 transition hover:text-white md:flex cursor-pointer"
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
+                  </>
+                )}
+
+                {chipEdges.right && (
+                  <>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-linear-to-l from-[#0b0b0d] to-transparent" />
+                    <button
+                      type="button"
+                      onClick={() => slideChips(1)}
+                      aria-label="Show more categories"
+                      className="absolute right-0 top-1/2 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-[#151519] text-white/70 transition hover:text-white md:flex cursor-pointer"
+                    >
+                      <ChevronRight size={15} />
+                    </button>
+                  </>
+                )}
               </div>
 
               <button
                 type="button"
-                onClick={() => setManageOpen((open) => !open)}
-                aria-expanded={manageOpen}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition cursor-pointer ${
-                  manageOpen
-                    ? "bg-white/10 text-white"
-                    : "text-white/45 hover:bg-white/5 hover:text-white"
-                }`}
+                onClick={() => setManageOpen(true)}
+                className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/45 transition hover:bg-white/5 hover:text-white cursor-pointer"
               >
                 <Pencil size={12} />
                 Categories
               </button>
             </div>
           </div>
-
-          {/* Manage categories */}
-          {manageOpen && (
-            <section className="mt-5 rounded-3xl border border-white/8 bg-white/2.5 p-5">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Manage categories</p>
-                <button
-                  type="button"
-                  onClick={() => setManageOpen(false)}
-                  aria-label="Close"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-white/40 hover:bg-white/5 hover:text-white cursor-pointer"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-
-              <div className="mt-3 flex gap-2">
-                <input
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddCategory();
-                  }}
-                  placeholder="New category name"
-                  aria-label="New category name"
-                  className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-white/2.5 px-4 text-sm text-white outline-none placeholder:text-white/25 focus:border-white/25"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCategory}
-                  disabled={!newCategoryName.trim()}
-                  className="flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-4 text-sm text-white/70 transition hover:bg-white/5 cursor-pointer disabled:cursor-default disabled:opacity-40"
-                >
-                  <Plus size={14} />
-                  Add
-                </button>
-              </div>
-
-              <ul className="mt-3 divide-y divide-white/6">
-                {categories.map((category) => {
-                  const count = items.filter(
-                    (item) => item.category_id === category.id,
-                  ).length;
-
-                  return (
-                    <li
-                      key={category.id}
-                      className="flex items-center gap-3 py-2.5"
-                    >
-                      {editingCategoryId === category.id ? (
-                        <input
-                          autoFocus
-                          value={editingCategoryName}
-                          onChange={(e) =>
-                            setEditingCategoryName(e.target.value)
-                          }
-                          onBlur={() => handleRenameCategory(category.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter")
-                              handleRenameCategory(category.id);
-                          }}
-                          aria-label="Category name"
-                          className="min-w-0 flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-white outline-none"
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingCategoryId(category.id);
-                            setEditingCategoryName(category.name);
-                          }}
-                          className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-white/80 hover:text-white cursor-pointer"
-                        >
-                          <span className="truncate">{category.name}</span>
-                          <Pencil
-                            size={11}
-                            className="shrink-0 text-white/25"
-                          />
-                        </button>
-                      )}
-
-                      <span className="shrink-0 text-xs text-white/30">
-                        {count} {count === 1 ? "item" : "items"}
-                      </span>
-
-                      {confirmingDeleteCategoryId === category.id ? (
-                        <div className="flex shrink-0 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setConfirmingDeleteCategoryId(null)}
-                            className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/55 hover:bg-white/5 cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCategory(category.id)}
-                            className="rounded-full border border-red-400/30 bg-red-400/10 px-3 py-1.5 text-xs text-red-300 hover:bg-red-400/15 cursor-pointer"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setConfirmingDeleteCategoryId(category.id)
-                          }
-                          aria-label={`Delete ${category.name}`}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/30 hover:bg-white/5 hover:text-red-300 cursor-pointer"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
 
           {/* Items */}
           {noItems ? (
@@ -944,6 +996,149 @@ export default function DashboardMenuPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Categories sheet: opens right where you are, however far you scrolled */}
+      {manageOpen && (
+        <div className="fixed inset-0 z-100 flex items-end justify-center sm:items-center">
+          <button
+            aria-label="Close categories"
+            onClick={() => setManageOpen(false)}
+            className="absolute inset-0 cursor-pointer bg-black/70 backdrop-blur-sm"
+          />
+
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Categories"
+            className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-4xl border border-white/10 bg-[#151519] sm:rounded-4xl"
+          >
+            <div className="flex shrink-0 items-center justify-between px-6 pb-3 pt-6">
+              <h2 className="text-xl font-medium text-white">Categories</h2>
+              <button
+                type="button"
+                onClick={() => setManageOpen(false)}
+                aria-label="Close"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white/40 hover:bg-white/5 hover:text-white cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex shrink-0 gap-2 px-6 pb-3">
+              <input
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddCategory();
+                }}
+                placeholder="New category name"
+                aria-label="New category name"
+                className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-white/2.5 px-4 text-sm text-white outline-none placeholder:text-white/25 focus:border-white/25"
+              />
+              <button
+                type="button"
+                onClick={handleAddCategory}
+                disabled={!newCategoryName.trim()}
+                className="flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-4 text-sm text-white/70 transition hover:bg-white/5 cursor-pointer disabled:cursor-default disabled:opacity-40"
+              >
+                <Plus size={14} />
+                Add
+              </button>
+            </div>
+
+            <ul className="min-h-0 flex-1 divide-y divide-white/6 overflow-y-auto px-6">
+              {categories.map((category) => {
+                const count = items.filter(
+                  (item) => item.category_id === category.id,
+                ).length;
+
+                return (
+                  <li
+                    key={category.id}
+                    className="flex items-center gap-3 py-2.5"
+                  >
+                    {editingCategoryId === category.id ? (
+                      <input
+                        autoFocus
+                        value={editingCategoryName}
+                        onChange={(e) => setEditingCategoryName(e.target.value)}
+                        onBlur={() => handleRenameCategory(category.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter")
+                            handleRenameCategory(category.id);
+                        }}
+                        aria-label="Category name"
+                        className="min-w-0 flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-white outline-none"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingCategoryId(category.id);
+                          setEditingCategoryName(category.name);
+                        }}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm text-white/80 hover:text-white cursor-pointer"
+                      >
+                        <span className="truncate">{category.name}</span>
+                        <Pencil size={11} className="shrink-0 text-white/25" />
+                      </button>
+                    )}
+
+                    <span className="shrink-0 text-xs text-white/30">
+                      {count} {count === 1 ? "item" : "items"}
+                    </span>
+
+                    {confirmingDeleteCategoryId === category.id ? (
+                      <div className="flex shrink-0 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDeleteCategoryId(null)}
+                          className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/55 hover:bg-white/5 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(category.id)}
+                          className="rounded-full border border-red-400/30 bg-red-400/10 px-3 py-1.5 text-xs text-red-300 hover:bg-red-400/15 cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmingDeleteCategoryId(category.id)
+                        }
+                        aria-label={`Delete ${category.name}`}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/30 hover:bg-white/5 hover:text-red-300 cursor-pointer"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="shrink-0 border-t border-white/[0.07] px-6 py-4">
+              {saveError && (
+                <p role="alert" className="mb-3 text-sm text-red-300">
+                  {saveError}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setManageOpen(false)}
+                className="h-12 w-full rounded-full bg-[#f5f2ea] text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Item editor */}
@@ -1314,7 +1509,7 @@ function Switch({
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+      className={`relative h-7 w-12 shrink-0 rounded-full transition cursor-pointer ${
         checked ? "bg-[#d7a45a]" : "bg-white/15"
       }`}
     >
