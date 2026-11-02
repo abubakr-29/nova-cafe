@@ -97,3 +97,129 @@ body {
     "Segoe UI",
     sans-serif;
 }
+
+/* ---- Customer menu: calm, subtle motion ---- */
+
+/* A soft glow that drifts slowly behind the page header. */
+.ambient-glow {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 380px;
+  overflow: hidden;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, #000 35%, transparent);
+}
+
+.ambient-glow::before,
+.ambient-glow::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+}
+
+.ambient-glow::before {
+  width: 520px;
+  height: 520px;
+  left: -180px;
+  top: -280px;
+  background: radial-gradient(
+    closest-side,
+    rgba(215, 164, 90, 0.2),
+    transparent
+  );
+  animation: ambient-drift-a 24s ease-in-out infinite;
+}
+
+.ambient-glow::after {
+  width: 440px;
+  height: 440px;
+  right: -160px;
+  top: -220px;
+  background: radial-gradient(
+    closest-side,
+    rgba(245, 242, 234, 0.07),
+    transparent
+  );
+  animation: ambient-drift-b 30s ease-in-out infinite;
+}
+
+@keyframes ambient-drift-a {
+  0%,
+  100% {
+    transform: translate3d(-6%, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(14%, 14%, 0) scale(1.15);
+  }
+}
+
+@keyframes ambient-drift-b {
+  0%,
+  100% {
+    transform: translate3d(6%, 8%, 0) scale(1.1);
+  }
+  50% {
+    transform: translate3d(-12%, -4%, 0) scale(0.95);
+  }
+}
+
+/* List items fade up one after another (set --i on the item). */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+/* The quantity number gives a small pop when it changes. */
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-pop {
+  animation: pop 0.28s ease-out;
+}
+
+/* The bottom dock slides up when it first appears. */
+@keyframes dock-in {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.animate-dock {
+  animation: dock-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-glow::before,
+  .ambient-glow::after,
+  .animate-rise,
+  .animate-pop,
+  .animate-dock {
+    animation: none !important;
+  }
+}

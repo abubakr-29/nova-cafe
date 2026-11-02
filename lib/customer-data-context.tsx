@@ -252,6 +252,8 @@ function toPaymentOptions(
   };
 }
 
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
 type CustomerDataContextValue = {
   loading: boolean;
   /** False when the café's service is paused: it takes no new orders. */
@@ -273,8 +275,8 @@ type CustomerDataContextValue = {
     cart: CartItem[],
     guestCount: number,
   ) => Promise<PlaceOrderResult>;
-  requestBillAsCustomer: (sessionId: string) => Promise<void>;
-  cancelOrderAsCustomer: (orderId: string) => Promise<void>;
+  requestBillAsCustomer: (sessionId: string) => Promise<ActionResult>;
+  cancelOrderAsCustomer: (orderId: string) => Promise<ActionResult>;
   /** The customer says they paid. Only staff can mark the bill paid. */
   claimPaymentAsCustomer: (
     sessionId: string,
@@ -480,17 +482,42 @@ export function CustomerDataProvider({
   );
 
   const requestBillAsCustomer = useCallback(
-    async (sessionId: string) => {
-      await supabase.rpc("request_bill", { p_session_id: sessionId });
+    async (sessionId: string): Promise<ActionResult> => {
+      const { error } = await supabase.rpc("request_bill", {
+        p_session_id: sessionId,
+      });
       await refetch();
+
+      if (error) {
+        console.error("request_bill failed", error);
+        return {
+          ok: false,
+          error: "Couldn't request the bill. Please try again.",
+        };
+      }
+
+      return { ok: true };
     },
     [supabase, refetch],
   );
 
   const cancelOrderAsCustomer = useCallback(
-    async (orderId: string) => {
-      await supabase.rpc("cancel_order", { p_order_id: orderId });
+    async (orderId: string): Promise<ActionResult> => {
+      const { error } = await supabase.rpc("cancel_order", {
+        p_order_id: orderId,
+      });
       await refetch();
+
+      if (error) {
+        console.error("cancel_order failed", error);
+        return {
+          ok: false,
+          error:
+            "Couldn't cancel the order. It may already be with the kitchen, so please ask a member of staff.",
+        };
+      }
+
+      return { ok: true };
     },
     [supabase, refetch],
   );

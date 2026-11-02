@@ -1,10 +1,10 @@
 "use client";
 
-import { ShoppingBag } from "lucide-react";
+import { Receipt, ShoppingBag } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import CartDrawer from "@/components/cart/cart-drawer";
-import MenuBrowser from "@/components/menu/menu-browser";
+import CustomerMenu from "@/components/customer/customer-menu";
 import type { MenuItem } from "@/types/menu";
 import MenuItemSheet from "@/components/menu/menu-item-sheet";
 import type { CartItem } from "@/types/cart";
@@ -21,6 +21,8 @@ import {
   useCustomerData,
 } from "@/lib/customer-data-context";
 import BillView from "@/components/customer/bill-view";
+import OrdersSheet from "@/components/customer/orders-sheet";
+import { calculateBill } from "@/lib/bill";
 import GuestGate from "@/components/customer/guest-gate";
 import type { TableGuest } from "@/types/session";
 
@@ -50,6 +52,7 @@ function MenuPage({ tableId }: { tableId: string }) {
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [billViewOpen, setBillViewOpen] = useState(false);
+  const [ordersOpen, setOrdersOpen] = useState(false);
   const [pendingGuestCount, setPendingGuestCount] = useState<number | null>(
     null,
   );
@@ -99,6 +102,17 @@ function MenuPage({ tableId }: { tableId: string }) {
         name: `Guest ${index + 1}`,
       }));
 
+  // Everything ordered at this table in this visit, newest first.
+  const sessionOrders = currentSession
+    ? currentSession.orderIds
+        .map((orderId) => orders.find((order) => order.id === orderId))
+        .filter((order): order is NonNullable<typeof order> => Boolean(order))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    : [];
+  const awaitingOrders = sessionOrders.filter(
+    (order) => order.status === "awaiting_validation",
+  );
+  const ordersTotal = calculateBill(sessionOrders).total;
   const liveCurrentOrder = currentOrderId
     ? (orders.find((order) => order.id === currentOrderId) ?? null)
     : null;
@@ -225,21 +239,47 @@ function MenuPage({ tableId }: { tableId: string }) {
     setCartDrawerOpen(false);
   }
 
-  function handleRequestBill() {
+  async function handleRequestBill() {
     if (!currentSession) {
       return;
     }
 
-    requestBillAsCustomer(currentSession.id);
+    const result = await requestBillAsCustomer(currentSession.id);
+
+    if (!result.ok) {
+      setOrderError(result.error);
+    }
   }
 
-  function handleCancelCurrentOrder() {
+  async function handleCancelCurrentOrder() {
     if (!liveCurrentOrder) {
       return;
     }
 
-    cancelOrderAsCustomer(liveCurrentOrder.id);
+    const result = await cancelOrderAsCustomer(liveCurrentOrder.id);
+
+    if (!result.ok) {
+      setOrderError(result.error);
+      return;
+    }
+
     setCurrentOrderId(null);
+  }
+
+  // From the "Your orders" sheet: errors show inside the sheet itself.
+  async function requestBillFromSheet() {
+    if (!currentSession) {
+      return { ok: false as const, error: "Couldn't find your table." };
+    }
+
+    const result = await requestBillAsCustomer(currentSession.id);
+
+    if (result.ok) {
+      setOrdersOpen(false);
+      setBillViewOpen(true);
+    }
+
+    return result;
   }
 
   if (loading) {
@@ -331,22 +371,29 @@ function MenuPage({ tableId }: { tableId: string }) {
       </div>
     ) : null;
 
+  const dockVisible = cartCount > 0 || sessionOrders.length > 0;
+
   return (
-    <main className="min-h-screen bg-[#0b0b0d] text-[#f5f2ea]">
-      <div className="mx-auto max-w-2xl">
+    <main className="relative min-h-screen overflow-x-clip bg-[#0b0b0d] text-[#f5f2ea]">
+      <div aria-hidden="true" className="ambient-glow" />
+
+      <div
+        className={`relative mx-auto max-w-2xl ${dockVisible ? "pb-28" : ""}`}
+      >
         {/* Header */}
-        <header className="flex items-center justify-between px-5 pb-4 pt-6">
+        <header className="flex items-center justify-between px-5 pb-5 pt-8">
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
               Welcome to
             </p>
 
-            <h1 className="mt-1 truncate text-xl font-medium">
+            <h1 className="mt-1.5 truncate text-3xl font-medium tracking-tight">
               {restaurantName}
             </h1>
           </div>
 
-          <span className="ml-3 shrink-0 rounded-full border border-white/10 px-4 py-2 text-sm text-white/60">
+          <span className="ml-3 flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/3 px-4 py-2 text-sm text-white/70 backdrop-blur">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#d7a45a]" />
             {currentTable.name}
           </span>
         </header>
@@ -369,7 +416,34 @@ function MenuPage({ tableId }: { tableId: string }) {
             </button>
           )}
 
-        <MenuBrowser
+        {awaitingOrders.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOrdersOpen(true)}
+            className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between gap-4 rounded-2xl border border-[#d7a45a]/25 bg-[#d7a45a]/8 px-5 py-4 text-left transition hover:bg-[#d7a45a]/12"
+          >
+            <span className="min-w-0">
+              <span className="block text-xs text-[#d7a45a]">
+                {awaitingOrders.length === 1
+                  ? `Order #${awaitingOrders[0].orderNumber} is waiting for staff`
+                  : `${awaitingOrders.length} orders are waiting for staff`}
+              </span>
+              <span className="mt-0.5 block text-[11px] text-white/35">
+                {awaitingOrders.length === 1
+                  ? "Show this code to a staff member"
+                  : "Tap to see the codes"}
+              </span>
+            </span>
+
+            {awaitingOrders.length === 1 && (
+              <span className="shrink-0 text-xl font-medium tracking-[0.25em] text-[#d7a45a]">
+                {awaitingOrders[0].validationCode}
+              </span>
+            )}
+          </button>
+        )}
+
+        <CustomerMenu
           categories={menuCategories}
           items={menuItems}
           quickQuantity={quickQuantity}
@@ -383,31 +457,57 @@ function MenuPage({ tableId }: { tableId: string }) {
 
       {/* Order error banner */}
       {orderError && (
-        <div className="fixed top-6 left-1/2 z-50 w-[calc(100%-32px)] max-w-xl -translate-x-1/2">
+        <div className="fixed top-6 left-1/2 z-130 w-[calc(100%-32px)] max-w-xl -translate-x-1/2">
           <div className="rounded-2xl border border-red-400/20 bg-red-950/80 px-5 py-3 text-center text-sm text-red-200 shadow-2xl backdrop-blur-xl">
             {orderError}
           </div>
         </div>
       )}
 
-      {/* Cart bar */}
-      {cartCount > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0b0b0d]/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedItem(null);
-              setCartDrawerOpen(true);
-            }}
-            className="mx-auto flex h-14 w-full max-w-2xl items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
-          >
-            <span className="flex items-center gap-2">
-              <ShoppingBag size={16} />
-              {cartCount} {cartCount === 1 ? "item" : "items"}
-            </span>
+      {/* Bottom dock: your orders + cart */}
+      {dockVisible && (
+        <div className="animate-dock fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0b0b0d]/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+          <div className="mx-auto flex w-full max-w-2xl gap-2">
+            {sessionOrders.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setOrdersOpen(true)}
+                aria-label="Your orders"
+                className={`relative flex h-14 items-center justify-center gap-2 rounded-full border border-white/12 px-5 text-sm text-white/80 transition hover:bg-white/5 active:scale-[0.99] ${
+                  cartCount > 0 ? "shrink-0" : "flex-1"
+                }`}
+              >
+                <Receipt size={16} />
+                {cartCount === 0 && <span>Your orders</span>}
+                {ordersTotal > 0 && (
+                  <span className="tabular-nums text-white/45">
+                    ₹{ordersTotal.toLocaleString("en-IN")}
+                  </span>
+                )}
+                {awaitingOrders.length > 0 && (
+                  <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#d7a45a]" />
+                )}
+              </button>
+            )}
 
-            <span>View order · ₹{cartTotal}</span>
-          </button>
+            {cartCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedItem(null);
+                  setCartDrawerOpen(true);
+                }}
+                className="flex h-14 min-w-0 flex-1 items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <span className="flex items-center gap-2">
+                  <ShoppingBag size={16} />
+                  {cartCount} {cartCount === 1 ? "item" : "items"}
+                </span>
+
+                <span>View order · ₹{cartTotal}</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -439,6 +539,22 @@ function MenuPage({ tableId }: { tableId: string }) {
           onRequestBill={handleRequestBill}
           onCancel={handleCancelCurrentOrder}
           onDone={() => setCurrentOrderId(null)}
+        />
+      )}
+
+      {ordersOpen && currentSession && (
+        <OrdersSheet
+          tableName={currentTable.name}
+          orders={sessionOrders}
+          billRequested={currentSession.billRequested}
+          paid={currentSession.paymentStatus === "paid"}
+          onClose={() => setOrdersOpen(false)}
+          onRequestBill={requestBillFromSheet}
+          onCancelOrder={cancelOrderAsCustomer}
+          onViewBill={() => {
+            setOrdersOpen(false);
+            setBillViewOpen(true);
+          }}
         />
       )}
 
