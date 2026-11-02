@@ -119,13 +119,21 @@ export default function TablesPage() {
           title="Tables"
           subtitle="Add tables, rename them, and print the QR codes guests scan."
           actions={
-            <Link
-              href="/dashboard/tables/qr"
-              className="flex h-11 items-center gap-2 rounded-full bg-[#f5f2ea] px-5 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.02]"
-            >
-              <Printer size={15} />
-              Print QR codes
-            </Link>
+            <>
+              <Link
+                href="/dashboard/tables/menu-card"
+                className="flex h-11 items-center rounded-full border border-white/10 px-5 text-sm text-white/60 transition hover:bg-white/5 hover:text-white"
+              >
+                Menu QR card
+              </Link>
+              <Link
+                href="/dashboard/tables/qr"
+                className="flex h-11 items-center gap-2 rounded-full bg-[#f5f2ea] px-5 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.02]"
+              >
+                <Printer size={15} />
+                Print QR codes
+              </Link>
+            </>
           }
         />
 

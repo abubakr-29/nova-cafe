@@ -44,3 +44,8 @@ export function tableUrl(
 ) {
   return `${siteUrl}/menu/${encodeURIComponent(restaurantSlug)}/${tableId}`;
 }
+
+/** The public, read-only menu of a café (no table, no ordering). */
+export function menuUrl(siteUrl: string, restaurantSlug: string) {
+  return `${siteUrl}/menu/${encodeURIComponent(restaurantSlug)}`;
+}

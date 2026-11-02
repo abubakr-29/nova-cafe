@@ -55,7 +55,7 @@ const nextConfig: NextConfig = {
           ...(isProduction
             ? [
                 {
-                  key: "Content-Security-Policy-Report-Only",
+                  key: "Content-Security-Policy",
                   value: csp,
                 },
               ]
