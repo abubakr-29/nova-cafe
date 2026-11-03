@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import DietDot from "@/components/menu/diet-dot";
+import MenuBackdrop, { toneFor } from "@/components/menu/menu-backdrop";
 import { MAX_ITEM_QUANTITY } from "@/lib/cart";
 import { formatPrice } from "@/lib/format-price";
 import { thumbnailUrl } from "@/lib/menu-image";
@@ -21,14 +22,16 @@ import type { MenuCategory, MenuItem } from "@/types/menu";
 type CustomerMenuProps = {
   categories: MenuCategory[];
   items: MenuItem[];
+  /** Browse only: no "+" buttons, rows don't open. Used by the public menu. */
+  readOnly?: boolean;
   /** How many of this item (plain, no options) are in the order for the person ordering. */
-  quickQuantity: (item: MenuItem) => number;
+  quickQuantity?: (item: MenuItem) => number;
   /** How many of this item are in the order in total, in any form. */
-  totalQuantity: (item: MenuItem) => number;
-  onQuickAdd: (item: MenuItem) => void;
-  onQuickRemove: (item: MenuItem) => void;
+  totalQuantity?: (item: MenuItem) => number;
+  onQuickAdd?: (item: MenuItem) => void;
+  onQuickRemove?: (item: MenuItem) => void;
   /** Open the full item sheet (options, notes, bigger photo). */
-  onOpenItem: (item: MenuItem) => void;
+  onOpenItem?: (item: MenuItem) => void;
   /** Extra row shown in the sticky bar, e.g. the "Ordering for" guest picker. */
   stickyExtra?: ReactNode;
 };
@@ -39,35 +42,46 @@ function hasOptions(item: MenuItem) {
   return (item.sizes?.length ?? 0) > 0 || (item.addons?.length ?? 0) > 0;
 }
 
-/** "₹200", "Half ₹250 · Full ₹350", or "from ₹120" when there are many sizes. */
+/** The price on the leader line: the plain price, or "from ₹120" with sizes. */
 function priceLabel(item: MenuItem) {
   const sizes = item.sizes ?? [];
 
   if (sizes.length === 0) return formatPrice(item.price);
 
-  const totals = sizes.map((size) => item.price + size.price);
+  const lowest = Math.min(...sizes.map((size) => item.price + size.price));
+  return `from ${formatPrice(lowest)}`;
+}
 
-  if (sizes.length <= 3) {
-    return sizes
-      .map((size, i) => `${size.name} ${formatPrice(totals[i])}`)
-      .join(" · ");
-  }
+/** "Half ₹115 · Full ₹175", shown under the name when there are sizes. */
+function sizesLine(item: MenuItem) {
+  const sizes = item.sizes ?? [];
 
-  return `from ${formatPrice(Math.min(...totals))}`;
+  if (sizes.length === 0) return "";
+
+  return sizes
+    .map((size) => `${size.name} ${formatPrice(item.price + size.price)}`)
+    .join(" · ");
 }
 
 function reducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/** The "All" tab: every category stacked in one list. */
+const ALL_ID = "__all__";
+
+const noop = () => {};
+const zero = () => 0;
+
 export default function CustomerMenu({
   categories,
   items,
-  quickQuantity,
-  totalQuantity,
-  onQuickAdd,
-  onQuickRemove,
-  onOpenItem,
+  readOnly = false,
+  quickQuantity = zero,
+  totalQuantity = zero,
+  onQuickAdd = noop,
+  onQuickRemove = noop,
+  onOpenItem = noop,
   stickyExtra,
 }: CustomerMenuProps) {
   const [query, setQuery] = useState("");
@@ -138,6 +152,18 @@ export default function CustomerMenu({
     0,
   );
 
+  // "All" only makes sense when there is more than one category.
+  const showAll = !searching && activeId === ALL_ID && visible.length > 1;
+  const tabs = [
+    ...(visible.length > 1 ? [{ id: ALL_ID, name: "All" }] : []),
+    ...visible.map((section) => ({ id: section.id, name: section.name })),
+  ];
+
+  // The tone and drawing follow the category you are looking at.
+  const backdropName = searching || showAll ? "" : (current?.name ?? "");
+  const backdropIndex = searching || showAll ? 0 : Math.max(currentIndex, 0);
+  const tone = toneFor(backdropName, backdropIndex);
+
   // Keep the selected tab centred in the sliding tab bar.
   const currentId = current?.id;
   useEffect(() => {
@@ -188,7 +214,7 @@ export default function CustomerMenu({
   function onTouchEnd(e: TouchEvent) {
     const start = touchStart.current;
     touchStart.current = null;
-    if (!start || searching) return;
+    if (!start || searching || showAll) return;
 
     const touch = e.changedTouches[0];
     const dx = touch.clientX - start.x;
@@ -205,6 +231,11 @@ export default function CustomerMenu({
   }
 
   function renderRows(list: MenuItem[]) {
+    // Photos show only where most of a category has them, so a list never
+    // looks half filled.
+    const photoMode =
+      list.filter((item) => item.image).length * 2 >= list.length;
+
     return (
       <ul>
         {list.map((item, index) => (
@@ -212,6 +243,8 @@ export default function CustomerMenu({
             key={item.id}
             item={item}
             index={index}
+            photoMode={photoMode}
+            readOnly={readOnly}
             quickQuantity={quickQuantity(item)}
             totalQuantity={totalQuantity(item)}
             onQuickAdd={onQuickAdd}
@@ -224,18 +257,21 @@ export default function CustomerMenu({
   }
 
   return (
-    <div>
+    <div className="font-menu">
+      <MenuBackdrop name={backdropName} index={backdropIndex} />
+
       {/* Sticky: search, veg filter, guest picker and the category tabs */}
       <div
         ref={barRef}
-        className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#0b0b0d]/90 backdrop-blur-xl"
+        style={{ backgroundColor: tone }}
+        className="sticky top-0 z-30 transition-colors duration-700"
       >
         <div className="mx-auto max-w-2xl px-4 pt-3">
           <div className="flex items-center gap-2">
             <div className="relative min-w-0 flex-1">
               <Search
                 size={15}
-                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30"
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/35"
               />
 
               <input
@@ -244,7 +280,7 @@ export default function CustomerMenu({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search the menu"
                 aria-label="Search the menu"
-                className="h-10 w-full rounded-full border border-white/10 bg-white/3 pl-10 pr-10 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-white/25 [&::-webkit-search-cancel-button]:hidden"
+                className="h-10 w-full rounded-full border border-white/12 bg-white/6 pl-10 pr-10 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-white/30 [&::-webkit-search-cancel-button]:hidden"
               />
 
               {searching && (
@@ -252,7 +288,7 @@ export default function CustomerMenu({
                   type="button"
                   onClick={() => setQuery("")}
                   aria-label="Clear search"
-                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-white/40 transition hover:bg-white/8 hover:text-white"
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-white/45 transition hover:bg-white/10 hover:text-white"
                 >
                   <X size={14} />
                 </button>
@@ -266,8 +302,8 @@ export default function CustomerMenu({
                 aria-pressed={vegOnly}
                 className={`flex h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-xs transition ${
                   vegOnly
-                    ? "border-[#3fa34d] bg-[#3fa34d]/15 text-white"
-                    : "border-white/10 text-white/55 hover:bg-white/5"
+                    ? "border-[#3fa34d] bg-[#3fa34d]/20 text-white"
+                    : "border-white/12 text-white/60 hover:bg-white/8"
                 }`}
               >
                 <DietDot diet="veg" />
@@ -276,7 +312,7 @@ export default function CustomerMenu({
             )}
           </div>
 
-          {stickyExtra && <div className="mt-2">{stickyExtra}</div>}
+          {stickyExtra && <div className="mt-4">{stickyExtra}</div>}
 
           {!searching && visible.length > 0 ? (
             <div
@@ -285,8 +321,10 @@ export default function CustomerMenu({
               aria-label="Menu categories"
               className="relative -mx-4 mt-1 flex gap-1 overflow-x-auto px-4 scrollbar-none mask-[linear-gradient(to_right,transparent,#000_14px,#000_calc(100%-28px),transparent)] [&::-webkit-scrollbar]:hidden"
             >
-              {visible.map((section) => {
-                const selected = section.id === current?.id;
+              {tabs.map((section) => {
+                const selected = showAll
+                  ? section.id === ALL_ID
+                  : section.id === current?.id;
 
                 return (
                   <button
@@ -298,13 +336,13 @@ export default function CustomerMenu({
                     onClick={() => selectTab(section.id)}
                     className={`relative shrink-0 px-3 py-3 text-sm transition-colors ${
                       selected
-                        ? "font-medium text-[#f5f2ea]"
-                        : "text-white/45 hover:text-white/75"
+                        ? "font-semibold text-[#ece9e1]"
+                        : "text-white/45 hover:text-white/80"
                     }`}
                   >
                     {section.name}
                     <span
-                      className={`absolute inset-x-3 bottom-0 h-0.5 origin-center rounded-full bg-[#d7a45a] transition-transform duration-300 ${
+                      className={`absolute inset-x-3 bottom-0 h-0.5 origin-center rounded-full bg-[#ece9e1] transition-transform duration-300 ${
                         selected ? "scale-x-100" : "scale-x-0"
                       }`}
                     />
@@ -316,6 +354,17 @@ export default function CustomerMenu({
             <div className="h-3" />
           )}
         </div>
+
+        {/* A soft fade under the bar, so the list slides away instead of being cut */}
+        <div
+          aria-hidden="true"
+          style={{
+            backgroundColor: tone,
+            maskImage: "linear-gradient(to bottom, #000, transparent)",
+            WebkitMaskImage: "linear-gradient(to bottom, #000, transparent)",
+          }}
+          className="pointer-events-none absolute inset-x-0 top-full h-5 transition-colors duration-700"
+        />
       </div>
 
       {/* The list */}
@@ -324,13 +373,13 @@ export default function CustomerMenu({
         role="tabpanel"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        className="mx-auto min-h-[60vh] max-w-2xl px-5 pb-32"
+        className="relative z-10 mx-auto min-h-[60vh] max-w-2xl px-5 pb-32"
       >
         {visible.length === 0 ? (
           <div className="py-20 text-center">
-            <p className="text-base text-white/70">Nothing found.</p>
+            <p className="text-base text-white/75">Nothing found.</p>
 
-            <p className="mt-2 text-sm text-white/30">
+            <p className="mt-2 text-sm text-white/40">
               Try another search
               {vegOnly ? ", or turn off the Veg filter" : ""}.
             </p>
@@ -338,22 +387,38 @@ export default function CustomerMenu({
             <button
               type="button"
               onClick={clearFilters}
-              className="mt-5 rounded-full border border-white/10 px-5 py-2 text-xs text-white/60 transition hover:bg-white/5"
+              className="mt-5 rounded-full border border-white/15 px-5 py-2 text-xs text-white/70 transition hover:bg-white/8"
             >
               Clear filters
             </button>
           </div>
         ) : searching ? (
           <div>
-            <p className="pt-5 text-xs text-white/35">
+            <p className="pt-5 text-xs text-white/45">
               {resultCount} {resultCount === 1 ? "result" : "results"}
             </p>
 
             {visible.map((section) => (
-              <section key={section.id} className="pt-5">
-                <h2 className="text-[11px] uppercase tracking-[0.25em] text-[#d7a45a]">
-                  {section.name}
-                </h2>
+              <section key={section.id} className="pt-6">
+                <h2 className="font-menu-display text-xl">{section.name}</h2>
+                {renderRows(section.items)}
+              </section>
+            ))}
+          </div>
+        ) : showAll ? (
+          <div>
+            <div className="animate-rise flex items-end justify-between gap-3 pb-1 pt-7">
+              <h2 className="font-menu-display text-[2.1rem] leading-none sm:text-5xl">
+                All
+              </h2>
+              <span className="shrink-0 pb-1 text-xs text-white/45">
+                {resultCount} {resultCount === 1 ? "item" : "items"}
+              </span>
+            </div>
+
+            {visible.map((section) => (
+              <section key={section.id} className="pt-8">
+                <h3 className="font-menu-display text-2xl">{section.name}</h3>
                 {renderRows(section.items)}
               </section>
             ))}
@@ -361,11 +426,11 @@ export default function CustomerMenu({
         ) : (
           current && (
             <section key={current.id}>
-              <div className="animate-rise flex items-baseline justify-between gap-3 pb-1 pt-6">
-                <h2 className="text-2xl font-medium tracking-tight">
+              <div className="animate-rise flex items-end justify-between gap-3 pb-2 pt-7">
+                <h2 className="font-menu-display text-[2.1rem] leading-none sm:text-5xl">
                   {current.name}
                 </h2>
-                <span className="text-xs text-white/30">
+                <span className="shrink-0 pb-1 text-xs text-white/45">
                   {current.items.length}{" "}
                   {current.items.length === 1 ? "item" : "items"}
                 </span>
@@ -376,13 +441,13 @@ export default function CustomerMenu({
               {visible.length > 1 && (
                 <nav
                   aria-label="Next and previous category"
-                  className="flex items-center justify-between pt-8 text-sm"
+                  className="flex items-center justify-between pt-9 text-sm"
                 >
                   {visible[currentIndex - 1] ? (
                     <button
                       type="button"
                       onClick={() => goBy(-1)}
-                      className="text-white/40 transition hover:text-white"
+                      className="text-white/45 transition hover:text-white"
                     >
                       ← {visible[currentIndex - 1].name}
                     </button>
@@ -394,7 +459,7 @@ export default function CustomerMenu({
                     <button
                       type="button"
                       onClick={() => goBy(1)}
-                      className="text-white/70 transition hover:text-white"
+                      className="font-medium text-[#ece9e1] transition hover:text-white"
                     >
                       {visible[currentIndex + 1].name} →
                     </button>
@@ -414,6 +479,8 @@ export default function CustomerMenu({
 function MenuRow({
   item,
   index,
+  photoMode,
+  readOnly,
   quickQuantity,
   totalQuantity,
   onQuickAdd,
@@ -422,6 +489,8 @@ function MenuRow({
 }: {
   item: MenuItem;
   index: number;
+  photoMode: boolean;
+  readOnly: boolean;
   quickQuantity: number;
   totalQuantity: number;
   onQuickAdd: (item: MenuItem) => void;
@@ -435,84 +504,102 @@ function MenuRow({
   const available = item.available !== false;
   const showImage = !!item.image && imageStage < 2;
   const imageSrc = imageStage === 0 ? thumbnailUrl(item.image) : item.image;
+  const sizes = sizesLine(item);
+  const canOpen = !readOnly && available;
+
+  const nameRow = (
+    <span className="flex items-end gap-2">
+      <DietDot diet={item.diet} className="mb-1.5 self-start" />
+      <span className="wrap-break-word min-w-0 text-[16px] font-semibold leading-snug">
+        {item.name}
+      </span>
+      <span
+        aria-hidden="true"
+        className="mb-1.25 min-w-3 flex-1 border-b-[1.5px] border-dotted border-white/25"
+      />
+      <span className="shrink-0 text-[15px] tabular-nums">
+        {priceLabel(item)}
+      </span>
+    </span>
+  );
+
+  const details = (
+    <>
+      {item.description && (
+        <span className="mt-1.5 line-clamp-2 block text-[13px] leading-5 text-white/50">
+          {item.description}
+        </span>
+      )}
+
+      {sizes && (
+        <span className="mt-1 block text-xs text-white/45">{sizes}</span>
+      )}
+
+      {!available && (
+        <span className="mt-1.5 block text-[11px] text-white/50">Sold out</span>
+      )}
+
+      {totalQuantity > 0 && (
+        <span className="mt-1.5 block text-[11px] font-medium text-[#ece9e1]">
+          {totalQuantity} in your order
+        </span>
+      )}
+    </>
+  );
 
   return (
     <li
       style={{ "--i": Math.min(index, 8) } as CSSProperties}
-      className={`animate-rise flex items-start gap-4 border-b border-white/6 py-5 last:border-b-0 ${
-        available ? "" : "opacity-45"
+      className={`animate-rise flex items-center gap-3.5 border-b border-white/8 py-4 last:border-b-0 ${
+        available ? "" : "opacity-50"
       }`}
     >
-      <button
-        type="button"
-        disabled={!available}
-        onClick={() => onOpen(item)}
-        className="min-w-0 flex-1 text-left disabled:cursor-default"
-      >
-        <span className="flex items-start gap-2">
-          <DietDot diet={item.diet} className="mt-0.75" />
-          <span className="wrap-break-word text-[15px] font-medium leading-snug">
-            {item.name}
-          </span>
-        </span>
-
-        {item.description && (
-          <span className="mt-1.5 line-clamp-2 block text-[13px] leading-5 text-white/40">
-            {item.description}
-          </span>
-        )}
-
-        <span className="mt-2 block text-sm tabular-nums text-white/80">
-          {priceLabel(item)}
-        </span>
-
-        {!available && (
-          <span className="mt-1.5 block text-[10px] uppercase tracking-wider text-white/40">
-            Sold out
-          </span>
-        )}
-
-        {totalQuantity > 0 && (
-          <span className="mt-1.5 block text-[11px] text-[#d7a45a]">
-            {totalQuantity} in your order
-          </span>
-        )}
-      </button>
-
-      <div className="flex w-24 shrink-0 flex-col items-end gap-2.5">
-        {showImage && (
-          <button
-            type="button"
-            disabled={!available}
-            onClick={() => onOpen(item)}
-            aria-label={`View ${item.name}`}
-            className="block disabled:cursor-default"
-          >
+      {photoMode && (
+        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-white/6">
+          {showImage && (
             <Image
               key={imageSrc}
               src={imageSrc}
               alt=""
-              width={84}
-              height={84}
-              sizes="84px"
+              width={56}
+              height={56}
+              sizes="56px"
               unoptimized
               onError={() =>
                 setImageStage((stage) =>
                   stage === 0 && imageSrc !== item.image ? 1 : 2,
                 )
               }
-              className="h-21 w-21 rounded-2xl object-cover"
+              className="h-14 w-14 object-cover"
             />
-          </button>
-        )}
+          )}
+        </div>
+      )}
 
-        {available &&
-          (hasOptions(item) ? (
+      {canOpen ? (
+        <button
+          type="button"
+          onClick={() => onOpen(item)}
+          className="min-w-0 flex-1 text-left"
+        >
+          {nameRow}
+          {details}
+        </button>
+      ) : (
+        <div className="min-w-0 flex-1">
+          {nameRow}
+          {details}
+        </div>
+      )}
+
+      {!readOnly && available && (
+        <div className="shrink-0">
+          {hasOptions(item) ? (
             <button
               type="button"
               onClick={() => onOpen(item)}
               aria-label={`Choose options for ${item.name}`}
-              className="h-9 rounded-full border border-[#f5f2ea]/35 px-5 text-xs font-medium text-[#f5f2ea] transition active:scale-95 hover:bg-white/8"
+              className="h-9 rounded-full border border-[#ece9e1]/45 px-4 text-xs font-medium text-[#ece9e1] transition hover:bg-white/10 active:scale-95"
             >
               Choose
             </button>
@@ -520,7 +607,7 @@ function MenuRow({
             <div
               role="group"
               aria-label={`${item.name} quantity`}
-              className="flex h-9 items-center rounded-full bg-[#f5f2ea] text-[#0b0b0d]"
+              className="flex h-9 items-center rounded-full bg-[#ece9e1] text-[#15120f]"
             >
               <button
                 type="button"
@@ -533,7 +620,7 @@ function MenuRow({
 
               <span
                 key={quickQuantity}
-                className="animate-pop min-w-5 text-center text-sm font-medium tabular-nums"
+                className="animate-pop min-w-5 text-center text-sm font-semibold tabular-nums"
               >
                 {quickQuantity}
               </span>
@@ -553,12 +640,13 @@ function MenuRow({
               type="button"
               onClick={() => onQuickAdd(item)}
               aria-label={`Add ${item.name}`}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#f5f2ea]/35 text-[#f5f2ea] transition hover:bg-white/8 active:scale-90"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ece9e1] text-[#15120f] transition hover:bg-white active:scale-90"
             >
-              <Plus size={16} />
+              <Plus size={17} />
             </button>
-          ))}
-      </div>
+          )}
+        </div>
+      )}
     </li>
   );
 }

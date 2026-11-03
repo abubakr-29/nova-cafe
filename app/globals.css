@@ -98,72 +98,6 @@ body {
     sans-serif;
 }
 
-/* ---- Customer menu: calm, subtle motion ---- */
-
-/* A soft glow that drifts slowly behind the page header. */
-.ambient-glow {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 380px;
-  overflow: hidden;
-  pointer-events: none;
-  mask-image: linear-gradient(to bottom, #000 35%, transparent);
-}
-
-.ambient-glow::before,
-.ambient-glow::after {
-  content: "";
-  position: absolute;
-  border-radius: 9999px;
-  will-change: transform;
-}
-
-.ambient-glow::before {
-  width: 520px;
-  height: 520px;
-  left: -180px;
-  top: -280px;
-  background: radial-gradient(
-    closest-side,
-    rgba(215, 164, 90, 0.2),
-    transparent
-  );
-  animation: ambient-drift-a 24s ease-in-out infinite;
-}
-
-.ambient-glow::after {
-  width: 440px;
-  height: 440px;
-  right: -160px;
-  top: -220px;
-  background: radial-gradient(
-    closest-side,
-    rgba(245, 242, 234, 0.07),
-    transparent
-  );
-  animation: ambient-drift-b 30s ease-in-out infinite;
-}
-
-@keyframes ambient-drift-a {
-  0%,
-  100% {
-    transform: translate3d(-6%, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(14%, 14%, 0) scale(1.15);
-  }
-}
-
-@keyframes ambient-drift-b {
-  0%,
-  100% {
-    transform: translate3d(6%, 8%, 0) scale(1.1);
-  }
-  50% {
-    transform: translate3d(-12%, -4%, 0) scale(0.95);
-  }
-}
-
 /* List items fade up one after another (set --i on the item). */
 @keyframes rise {
   from {
@@ -215,11 +149,65 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ambient-glow::before,
-  .ambient-glow::after,
   .animate-rise,
   .animate-pop,
   .animate-dock {
+    animation: none !important;
+  }
+}
+
+/* ---- Guest menu: Archivo type + background drawings ---- */
+
+.font-menu {
+  font-family: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The big café name and category titles: wide, heavy, tightly set. */
+.font-menu-display {
+  font-family: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+  font-stretch: 112%;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+/* The drawing behind the list fades in when the category changes. */
+@keyframes prop-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) rotate(-2deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.menu-prop {
+  animation: prop-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Steam rising from a hot drink. */
+@keyframes steam {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+
+.menu-steam {
+  animation: steam 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-prop,
+  .menu-steam {
     animation: none !important;
   }
 }

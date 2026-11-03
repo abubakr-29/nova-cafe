@@ -4,6 +4,8 @@ import { Receipt, ShoppingBag } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import CartDrawer from "@/components/cart/cart-drawer";
+import "@fontsource-variable/archivo/wdth.css";
+
 import CustomerMenu from "@/components/customer/customer-menu";
 import type { MenuItem } from "@/types/menu";
 import MenuItemSheet from "@/components/menu/menu-item-sheet";
@@ -360,8 +362,8 @@ function MenuPage({ tableId }: { tableId: string }) {
               onClick={() => setOrderingFor(index + 1)}
               className={`shrink-0 rounded-full border px-3 py-1 text-xs transition ${
                 selected
-                  ? "border-[#d7a45a]/60 bg-[#d7a45a]/10 text-[#d7a45a]"
-                  : "border-white/10 text-white/55 hover:bg-white/5"
+                  ? "border-[#ece9e1] bg-[#ece9e1] font-medium text-[#15120f]"
+                  : "border-white/15 text-white/60 hover:bg-white/8"
               }`}
             >
               {guest.name}
@@ -374,28 +376,29 @@ function MenuPage({ tableId }: { tableId: string }) {
   const dockVisible = cartCount > 0 || sessionOrders.length > 0;
 
   return (
-    <main className="relative min-h-screen overflow-x-clip bg-[#0b0b0d] text-[#f5f2ea]">
-      <div aria-hidden="true" className="ambient-glow" />
-
+    <main className="font-menu relative isolate min-h-screen overflow-x-clip text-[#ece9e1]">
       <div
-        className={`relative mx-auto max-w-2xl ${dockVisible ? "pb-28" : ""}`}
+        className={`relative z-10 mx-auto max-w-2xl ${dockVisible ? "pb-28" : ""}`}
       >
         {/* Header */}
-        <header className="flex items-center justify-between px-5 pb-5 pt-8">
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-              Welcome to
-            </p>
+        <header className="px-5 pb-5 pt-10">
+          <h1 className="font-menu-display text-balance text-[clamp(2.75rem,14vw,4.5rem)] leading-[0.92]">
+            {restaurantName.trim().split(/\s+/).length === 2
+              ? restaurantName
+                  .trim()
+                  .split(/\s+/)
+                  .map((word) => (
+                    <span key={word} className="block">
+                      {word}
+                    </span>
+                  ))
+              : restaurantName}
+          </h1>
 
-            <h1 className="mt-1.5 truncate text-3xl font-medium tracking-tight">
-              {restaurantName}
-            </h1>
-          </div>
-
-          <span className="ml-3 flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/3 px-4 py-2 text-sm text-white/70 backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#d7a45a]" />
+          <p className="mt-3 flex items-center gap-2 text-sm text-white/60">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#ece9e1]" />
             {currentTable.name}
-          </span>
+          </p>
         </header>
 
         {currentSession?.billRequested &&
@@ -403,14 +406,14 @@ function MenuPage({ tableId }: { tableId: string }) {
             <button
               type="button"
               onClick={() => setBillViewOpen(true)}
-              className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between rounded-2xl border border-[#d7a45a]/25 bg-[#d7a45a]/8 px-5 py-4 text-left transition hover:bg-[#d7a45a]/12"
+              className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between rounded-2xl border border-white/15 bg-black/25 px-5 py-4 text-left backdrop-blur transition hover:bg-black/35"
             >
-              <span className="text-xs text-[#d7a45a]">
+              <span className="text-xs text-white/75">
                 {currentSession.paymentStatus === "claimed"
                   ? "Waiting for the café to confirm"
                   : "Your bill is ready"}
               </span>
-              <span className="text-xs font-medium text-[#d7a45a]">
+              <span className="text-xs font-semibold text-[#ece9e1]">
                 View bill →
               </span>
             </button>
@@ -420,10 +423,10 @@ function MenuPage({ tableId }: { tableId: string }) {
           <button
             type="button"
             onClick={() => setOrdersOpen(true)}
-            className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between gap-4 rounded-2xl border border-[#d7a45a]/25 bg-[#d7a45a]/8 px-5 py-4 text-left transition hover:bg-[#d7a45a]/12"
+            className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between gap-4 rounded-2xl border border-white/15 bg-black/25 px-5 py-4 text-left backdrop-blur transition hover:bg-black/35"
           >
             <span className="min-w-0">
-              <span className="block text-xs text-[#d7a45a]">
+              <span className="block text-xs font-medium text-[#ece9e1]">
                 {awaitingOrders.length === 1
                   ? `Order #${awaitingOrders[0].orderNumber} is waiting for staff`
                   : `${awaitingOrders.length} orders are waiting for staff`}
@@ -436,7 +439,7 @@ function MenuPage({ tableId }: { tableId: string }) {
             </span>
 
             {awaitingOrders.length === 1 && (
-              <span className="shrink-0 text-xl font-medium tracking-[0.25em] text-[#d7a45a]">
+              <span className="shrink-0 text-xl font-semibold tracking-[0.25em] text-[#ece9e1]">
                 {awaitingOrders[0].validationCode}
               </span>
             )}
@@ -466,7 +469,7 @@ function MenuPage({ tableId }: { tableId: string }) {
 
       {/* Bottom dock: your orders + cart */}
       {dockVisible && (
-        <div className="animate-dock fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#0b0b0d]/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+        <div className="animate-dock fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-black/45 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
           <div className="mx-auto flex w-full max-w-2xl gap-2">
             {sessionOrders.length > 0 && (
               <button
@@ -485,7 +488,7 @@ function MenuPage({ tableId }: { tableId: string }) {
                   </span>
                 )}
                 {awaitingOrders.length > 0 && (
-                  <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#d7a45a]" />
+                  <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#ece9e1]" />
                 )}
               </button>
             )}
@@ -497,7 +500,7 @@ function MenuPage({ tableId }: { tableId: string }) {
                   setSelectedItem(null);
                   setCartDrawerOpen(true);
                 }}
-                className="flex h-14 min-w-0 flex-1 items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
+                className="flex h-14 min-w-0 flex-1 items-center justify-between rounded-full bg-[#ece9e1] px-6 text-sm font-semibold text-[#15120f] transition hover:scale-[1.01] active:scale-[0.99]"
               >
                 <span className="flex items-center gap-2">
                   <ShoppingBag size={16} />
