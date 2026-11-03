@@ -360,7 +360,7 @@ function MenuPage({ tableId }: { tableId: string }) {
               type="button"
               aria-pressed={selected}
               onClick={() => setOrderingFor(index + 1)}
-              className={`shrink-0 rounded-full border px-3 py-1 text-xs transition ${
+              className={`shrink-0 rounded-full border px-3 py-1 text-xs transition cursor-pointer ${
                 selected
                   ? "border-[#ece9e1] bg-[#ece9e1] font-medium text-[#15120f]"
                   : "border-white/15 text-white/60 hover:bg-white/8"
@@ -406,7 +406,7 @@ function MenuPage({ tableId }: { tableId: string }) {
             <button
               type="button"
               onClick={() => setBillViewOpen(true)}
-              className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between rounded-2xl border border-white/15 bg-black/25 px-5 py-4 text-left backdrop-blur transition hover:bg-black/35"
+              className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between rounded-2xl border border-white/15 bg-black/25 px-5 py-4 text-left backdrop-blur transition hover:bg-black/35 cursor-pointer"
             >
               <span className="text-xs text-white/75">
                 {currentSession.paymentStatus === "claimed"
@@ -423,7 +423,7 @@ function MenuPage({ tableId }: { tableId: string }) {
           <button
             type="button"
             onClick={() => setOrdersOpen(true)}
-            className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between gap-4 rounded-2xl border border-white/15 bg-black/25 px-5 py-4 text-left backdrop-blur transition hover:bg-black/35"
+            className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between gap-4 rounded-2xl border border-white/15 bg-black/25 px-5 py-4 text-left backdrop-blur transition hover:bg-black/35 cursor-pointer"
           >
             <span className="min-w-0">
               <span className="block text-xs font-medium text-[#ece9e1]">
@@ -469,26 +469,26 @@ function MenuPage({ tableId }: { tableId: string }) {
 
       {/* Bottom dock: your orders + cart */}
       {dockVisible && (
-        <div className="animate-dock fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-black/45 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+        <div className="animate-dock fixed inset-x-0 bottom-0 z-50 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <div className="mx-auto flex w-full max-w-2xl gap-2">
             {sessionOrders.length > 0 && (
               <button
                 type="button"
                 onClick={() => setOrdersOpen(true)}
                 aria-label="Your orders"
-                className={`relative flex h-14 items-center justify-center gap-2 rounded-full border border-white/12 px-5 text-sm text-white/80 transition hover:bg-white/5 active:scale-[0.99] ${
+                className={`relative flex h-14 items-center justify-center gap-2 rounded-full border border-[#111111]/10 bg-[#FBFBF9] px-5 text-sm text-[#111111] shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:border-[#111111]/20 hover:bg-[#E9E9E5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111] active:scale-[0.99] cursor-pointer ${
                   cartCount > 0 ? "shrink-0" : "flex-1"
                 }`}
               >
                 <Receipt size={16} />
                 {cartCount === 0 && <span>Your orders</span>}
                 {ordersTotal > 0 && (
-                  <span className="tabular-nums text-white/45">
+                  <span className="tabular-nums text-[#111111]">
                     ₹{ordersTotal.toLocaleString("en-IN")}
                   </span>
                 )}
                 {awaitingOrders.length > 0 && (
-                  <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#ece9e1]" />
+                  <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#2B3BFF]" />
                 )}
               </button>
             )}
@@ -500,7 +500,7 @@ function MenuPage({ tableId }: { tableId: string }) {
                   setSelectedItem(null);
                   setCartDrawerOpen(true);
                 }}
-                className="flex h-14 min-w-0 flex-1 items-center justify-between rounded-full bg-[#ece9e1] px-6 text-sm font-semibold text-[#15120f] transition hover:scale-[1.01] active:scale-[0.99]"
+                className="flex h-14 min-w-0 flex-1 items-center justify-between rounded-full bg-[#ece9e1] px-6 text-sm font-semibold text-[#15120f] transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
               >
                 <span className="flex items-center gap-2">
                   <ShoppingBag size={16} />
