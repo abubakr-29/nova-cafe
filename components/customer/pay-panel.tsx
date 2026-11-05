@@ -16,9 +16,9 @@ type PayPanelProps = {
 };
 
 const primary =
-  "flex h-14 w-full items-center justify-center rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50";
+  "flex h-14 w-full items-center justify-center rounded-full bg-ink px-6 text-sm font-medium text-ink-dark transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50";
 const secondary =
-  "flex h-14 w-full items-center justify-between rounded-full border border-white/10 px-6 text-sm text-white/70 transition hover:border-white/20 hover:bg-white/5";
+  "flex h-14 w-full items-center justify-between rounded-full border border-ink/10 px-6 text-sm text-ink/70 transition hover:border-ink/20 hover:bg-ink/5";
 
 export default function PayPanel({
   amount,
@@ -58,10 +58,10 @@ export default function PayPanel({
 
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.2em] text-white/30">
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/30">
         Amount to pay
       </p>
-      <p className="mt-2 text-4xl font-medium tracking-[-0.03em] text-white">
+      <p className="mt-2 text-4xl font-medium tracking-[-0.03em] text-ink">
         {money}
       </p>
 
@@ -94,16 +94,16 @@ export default function PayPanel({
                 Open UPI app
               </a>
 
-              <div className="mx-auto mt-5 w-fit rounded-2xl bg-white p-3">
+              <div className="mx-auto mt-5 w-fit rounded-2xl bg-ink p-3">
                 <QRCodeSVG value={upiLink} size={168} />
               </div>
-              <p className="mt-3 text-center text-xs text-white/35">
+              <p className="mt-3 text-center text-xs text-ink/35">
                 Or scan this with another phone&apos;s UPI app.
               </p>
             </>
           ) : (
             <>
-              <div className="mx-auto w-fit max-w-full rounded-2xl bg-white p-3">
+              <div className="mx-auto w-fit max-w-full rounded-2xl bg-ink p-3">
                 {/* eslint-disable-next-line @next/next/no-img-element -- the café's own uploaded QR picture */}
                 <img
                   src={options.qrUrl ?? ""}
@@ -111,13 +111,13 @@ export default function PayPanel({
                   className="max-h-72 w-auto max-w-full"
                 />
               </div>
-              <p className="mt-3 text-center text-xs text-white/35">
+              <p className="mt-3 text-center text-xs text-ink/35">
                 Scan with any UPI app and enter {money}.
               </p>
             </>
           )}
 
-          <p className="mt-5 text-center text-xs text-white/35">
+          <p className="mt-5 text-center text-xs text-ink/35">
             Paying {options.payeeName}. Tap below once the payment goes through.
           </p>
 
@@ -134,7 +134,7 @@ export default function PayPanel({
 
       {step === "cash" && (
         <div className="mt-6">
-          <p className="text-sm leading-6 text-white/50">
+          <p className="text-sm leading-6 text-ink/50">
             A staff member will come to your table to collect {money} in cash.
           </p>
           <button

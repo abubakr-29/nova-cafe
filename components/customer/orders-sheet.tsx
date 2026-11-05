@@ -34,10 +34,10 @@ export function statusInfo(status: OrderStatus): {
 }
 
 const TONE_CLASS: Record<StatusTone, string> = {
-  gold: "border-[#d7a45a]/30 bg-[#d7a45a]/10 text-[#d7a45a]",
+  gold: "border-ink/35 bg-transparent text-ink",
   green: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
-  plain: "border-white/10 bg-white/5 text-white/65",
-  muted: "border-white/8 bg-transparent text-white/35",
+  plain: "border-ink/10 bg-ink/5 text-ink/65",
+  muted: "border-ink/8 bg-transparent text-ink/35",
 };
 
 function formatRupees(amount: number) {
@@ -122,18 +122,18 @@ export default function OrdersSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Your orders"
-        className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-4xl border border-white/10 bg-[#101013] shadow-2xl sm:rounded-4xl"
+        className="font-menu relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-4xl border border-ink/10 guest-surface shadow-2xl sm:rounded-4xl"
       >
         <header className="flex shrink-0 items-center justify-between px-6 pb-3 pt-6">
           <div>
-            <h2 className="text-xl font-medium text-white">Your orders</h2>
-            <p className="mt-0.5 text-xs text-white/35">{tableName}</p>
+            <h2 className="text-xl font-medium text-ink">Your orders</h2>
+            <p className="mt-0.5 text-xs text-ink/35">{tableName}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white/50 transition hover:bg-white/5 hover:text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-ink/50 transition hover:bg-ink/5 hover:text-ink"
           >
             <X size={18} />
           </button>
@@ -141,20 +141,20 @@ export default function OrdersSheet({
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-5">
           {orders.length === 0 ? (
-            <p className="py-10 text-center text-sm text-white/35">
+            <p className="py-10 text-center text-sm text-ink/35">
               Nothing ordered yet.
             </p>
           ) : (
             <>
               {hasBillable && (
-                <div className="rounded-3xl border border-white/10 bg-white/3.5 p-5">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/35">
+                <div className="rounded-3xl border border-ink/10 bg-ink/3.5 p-5">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-ink/35">
                     Total so far
                   </p>
-                  <p className="mt-1 text-3xl font-medium tabular-nums text-white">
+                  <p className="mt-1 text-3xl font-medium tabular-nums text-ink">
                     {formatRupees(bill.total)}
                   </p>
-                  <p className="mt-1 text-xs tabular-nums text-white/35">
+                  <p className="mt-1 text-xs tabular-nums text-ink/35">
                     {formatRupees(bill.subtotal)} + {formatRupees(bill.tax)} tax
                   </p>
                 </div>
@@ -172,18 +172,18 @@ export default function OrdersSheet({
                 return (
                   <article
                     key={order.id}
-                    className="rounded-3xl border border-white/8 bg-white/2.5 p-5"
+                    className="rounded-3xl border border-ink/8 bg-ink/2.5 p-5"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p
                           className={`text-sm font-medium ${
-                            cancelled ? "text-white/40" : "text-white"
+                            cancelled ? "text-ink/40" : "text-ink"
                           }`}
                         >
                           Order #{order.orderNumber}
                         </p>
-                        <p className="mt-0.5 text-xs text-white/30">{time}</p>
+                        <p className="mt-0.5 text-xs text-ink/30">{time}</p>
                       </div>
                       <span
                         className={`shrink-0 rounded-full border px-3 py-1 text-[11px] ${TONE_CLASS[status.tone]}`}
@@ -193,11 +193,11 @@ export default function OrdersSheet({
                     </div>
 
                     {awaiting && (
-                      <div className="mt-4 rounded-2xl border border-[#d7a45a]/25 bg-[#d7a45a]/6 px-4 py-4 text-center">
-                        <p className="text-[10px] uppercase tracking-[0.25em] text-[#d7a45a]/70">
+                      <div className="mt-4 rounded-2xl border border-ink/25 bg-ink/6 px-4 py-4 text-center">
+                        <p className="text-[10px] uppercase tracking-[0.25em] text-ink/70">
                           Show this to staff
                         </p>
-                        <p className="mt-1.5 text-3xl font-medium tracking-[0.3em] text-[#d7a45a]">
+                        <p className="mt-1.5 text-3xl font-medium tracking-[0.3em] text-ink">
                           {order.validationCode}
                         </p>
                       </div>
@@ -214,14 +214,14 @@ export default function OrdersSheet({
                           className="flex items-start justify-between gap-4 text-sm"
                         >
                           <div className="min-w-0">
-                            <p className="text-white/80">
-                              <span className="text-white/40">
+                            <p className="text-ink/80">
+                              <span className="text-ink/40">
                                 {item.quantity} ×
                               </span>{" "}
                               {item.name}
                             </p>
                             {(item.size?.name || item.addons.length > 0) && (
-                              <p className="mt-0.5 text-xs text-white/30">
+                              <p className="mt-0.5 text-xs text-ink/30">
                                 {[
                                   item.size?.name,
                                   item.addons.map((a) => a.name).join(", "),
@@ -231,7 +231,7 @@ export default function OrdersSheet({
                               </p>
                             )}
                           </div>
-                          <span className="shrink-0 tabular-nums text-white/60">
+                          <span className="shrink-0 tabular-nums text-ink/60">
                             {formatRupees(item.totalPrice)}
                           </span>
                         </li>
@@ -239,13 +239,13 @@ export default function OrdersSheet({
                     </ul>
 
                     {awaiting && (
-                      <div className="mt-4 border-t border-white/8 pt-4">
+                      <div className="mt-4 border-t border-ink/8 pt-4">
                         {confirmingCancelId === order.id ? (
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               type="button"
                               onClick={() => setConfirmingCancelId(null)}
-                              className="h-11 rounded-full border border-white/10 text-xs font-medium text-white/60 transition hover:bg-white/5"
+                              className="h-11 rounded-full border border-ink/10 text-xs font-medium text-ink/60 transition hover:bg-ink/5"
                             >
                               Keep order
                             </button>
@@ -262,7 +262,7 @@ export default function OrdersSheet({
                           <button
                             type="button"
                             onClick={() => setConfirmingCancelId(order.id)}
-                            className="text-xs text-white/40 underline-offset-4 transition hover:text-white/70 hover:underline"
+                            className="text-xs text-ink/40 underline-offset-4 transition hover:text-ink/70 hover:underline"
                           >
                             Cancel this order
                           </button>
@@ -277,7 +277,7 @@ export default function OrdersSheet({
         </div>
 
         {hasBillable && (
-          <footer className="shrink-0 border-t border-white/8 bg-[#101013] px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
+          <footer className="shrink-0 border-t border-ink/8 guest-surface px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
             {error && (
               <p role="alert" className="mb-3 text-center text-sm text-red-300">
                 {error}
@@ -285,14 +285,14 @@ export default function OrdersSheet({
             )}
 
             {paid ? (
-              <p className="py-2 text-center text-sm text-white/50">
+              <p className="py-2 text-center text-sm text-ink/50">
                 Payment received. Thank you.
               </p>
             ) : billRequested ? (
               <button
                 type="button"
                 onClick={onViewBill}
-                className="h-14 w-full rounded-full bg-[#f5f2ea] text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99]"
+                className="h-14 w-full rounded-full bg-ink text-sm font-medium text-ink-dark transition hover:scale-[1.01] active:scale-[0.99]"
               >
                 View bill and pay
               </button>
@@ -302,11 +302,11 @@ export default function OrdersSheet({
                   type="button"
                   onClick={handleRequestBill}
                   disabled={busy}
-                  className="h-14 w-full rounded-full bg-[#f5f2ea] text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                  className="h-14 w-full rounded-full bg-ink text-sm font-medium text-ink-dark transition hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
                 >
                   {busy ? "Requesting..." : "Request the bill"}
                 </button>
-                <p className="mt-2 text-center text-xs text-white/30">
+                <p className="mt-2 text-center text-xs text-ink/30">
                   Done ordering? Request the bill when you are ready to pay.
                 </p>
               </>

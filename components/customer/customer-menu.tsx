@@ -164,6 +164,15 @@ export default function CustomerMenu({
   const backdropIndex = searching || showAll ? 0 : Math.max(currentIndex, 0);
   const tone = toneFor(backdropName, backdropIndex);
 
+  // Share the tone so the sheets that open over the menu can match it.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--menu-tone", tone);
+    return () => {
+      root.style.removeProperty("--menu-tone");
+    };
+  }, [tone]);
+
   // Keep the selected tab centred in the sliding tab bar.
   const currentId = current?.id;
   useEffect(() => {
@@ -336,13 +345,13 @@ export default function CustomerMenu({
                     onClick={() => selectTab(section.id)}
                     className={`relative shrink-0 px-3 py-3 text-sm transition-colors ${
                       selected
-                        ? "font-semibold text-[#ece9e1]"
+                        ? "font-semibold text-ink"
                         : "text-white/45 hover:text-white/80"
                     }`}
                   >
                     {section.name}
                     <span
-                      className={`absolute inset-x-3 bottom-0 h-0.5 origin-center rounded-full bg-[#ece9e1] transition-transform duration-300 ${
+                      className={`absolute inset-x-3 bottom-0 h-0.5 origin-center rounded-full bg-ink transition-transform duration-300 ${
                         selected ? "scale-x-100" : "scale-x-0"
                       }`}
                     />
@@ -459,7 +468,7 @@ export default function CustomerMenu({
                     <button
                       type="button"
                       onClick={() => goBy(1)}
-                      className="font-medium text-[#ece9e1] transition hover:text-white"
+                      className="font-medium text-ink transition hover:text-white"
                     >
                       {visible[currentIndex + 1].name} →
                     </button>
@@ -540,7 +549,7 @@ function MenuRow({
       )}
 
       {totalQuantity > 0 && (
-        <span className="mt-1.5 block text-[11px] font-medium text-[#ece9e1]">
+        <span className="mt-1.5 block text-[11px] font-medium text-ink">
           {totalQuantity} in your order
         </span>
       )}
@@ -599,7 +608,7 @@ function MenuRow({
               type="button"
               onClick={() => onOpen(item)}
               aria-label={`Choose options for ${item.name}`}
-              className="h-9 rounded-full border border-[#ece9e1]/45 px-4 text-xs font-medium text-[#ece9e1] transition hover:bg-white/10 active:scale-95"
+              className="h-9 rounded-full border border-ink/45 px-4 text-xs font-medium text-ink transition hover:bg-white/10 active:scale-95"
             >
               Choose
             </button>
@@ -607,7 +616,7 @@ function MenuRow({
             <div
               role="group"
               aria-label={`${item.name} quantity`}
-              className="flex h-9 items-center rounded-full bg-[#ece9e1] text-[#15120f]"
+              className="flex h-9 items-center rounded-full bg-ink text-ink-dark"
             >
               <button
                 type="button"
@@ -640,7 +649,7 @@ function MenuRow({
               type="button"
               onClick={() => onQuickAdd(item)}
               aria-label={`Add ${item.name}`}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ece9e1] text-[#15120f] transition hover:bg-white active:scale-90"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-ink-dark transition hover:bg-white active:scale-90"
             >
               <Plus size={17} />
             </button>

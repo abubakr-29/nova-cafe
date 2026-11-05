@@ -8,6 +8,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-ink: #ece9e1;
+  --color-ink-dark: #15120f;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -210,4 +212,19 @@ body {
   .menu-steam {
     animation: none !important;
   }
+}
+
+/* ---- Guest overlays: same tone as the menu, lifted toward stone ---- */
+.guest-surface {
+  background-color: color-mix(
+    in srgb,
+    var(--menu-tone, #161618) 94%,
+    #ece9e1 6%
+  );
+  color: #ece9e1;
+}
+
+.guest-page {
+  background-color: var(--menu-tone, #161618);
+  color: #ece9e1;
 }

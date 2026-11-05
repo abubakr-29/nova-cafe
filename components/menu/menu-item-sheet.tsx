@@ -18,6 +18,8 @@ type MenuItemSheetProps = {
   defaultGuestIndex?: number;
   onClose: () => void;
   onAdd: (item: CartItem) => void;
+  /** "guest" = dark strata look for customers. Staff keeps the default. */
+  variant?: "staff" | "guest";
 };
 
 export default function MenuItemSheet({
@@ -26,7 +28,9 @@ export default function MenuItemSheet({
   defaultGuestIndex,
   onClose,
   onAdd,
+  variant = "staff",
 }: MenuItemSheetProps) {
+  const g = variant === "guest";
   const [selectedSize, setSelectedSize] = useState<MenuOption | undefined>(
     item?.sizes?.[0],
   );
@@ -122,14 +126,22 @@ export default function MenuItemSheet({
         role="dialog"
         aria-modal="true"
         aria-label={`${currentItem.name} details`}
-        className="animate-sheet relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-4xl border border-white/10 bg-[#151519] shadow-2xl"
+        className={
+          g
+            ? "font-menu animate-sheet relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-4xl border border-ink/10 guest-surface shadow-2xl"
+            : "animate-sheet relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-4xl border border-white/10 bg-[#151519] shadow-2xl"
+        }
       >
         {/* Close */}
         <div className="sticky top-5 z-20 h-0">
           <button
             onClick={onClose}
             aria-label="Close"
-            className="absolute right-5 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-md transition hover:bg-black/70 hover:text-white"
+            className={
+              g
+                ? "absolute right-5 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-ink/70 backdrop-blur-md transition hover:bg-black/70 hover:text-ink"
+                : "absolute right-5 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-md transition hover:bg-black/70 hover:text-white"
+            }
           >
             <X size={18} />
           </button>
@@ -147,7 +159,13 @@ export default function MenuItemSheet({
               className="object-cover"
             />
 
-            <div className="absolute inset-0 bg-linear-to-t from-[#151519] via-transparent to-transparent" />
+            <div
+              className={
+                g
+                  ? "absolute inset-0 bg-linear-to-t from-[color-mix(in_srgb,var(--menu-tone,#161618)_94%,#ece9e1_6%)] via-transparent to-transparent"
+                  : "absolute inset-0 bg-linear-to-t from-[#151519] via-transparent to-transparent"
+              }
+            />
           </div>
         )}
 
@@ -156,7 +174,13 @@ export default function MenuItemSheet({
           className={`px-6 pb-7 md:px-8 ${currentItem.image ? "pt-2" : "pt-8"}`}
         >
           <div>
-            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-[#d7a45a]">
+            <p
+              className={
+                g
+                  ? "flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-ink"
+                  : "flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-[#d7a45a]"
+              }
+            >
               <DietDot diet={currentItem.diet} />
               {currentItem.category}
             </p>
@@ -168,7 +192,13 @@ export default function MenuItemSheet({
                 </h2>
 
                 {currentItem.description && (
-                  <p className="mt-3 max-w-lg text-sm leading-6 text-white/45">
+                  <p
+                    className={
+                      g
+                        ? "mt-3 max-w-lg text-sm leading-6 text-ink/45"
+                        : "mt-3 max-w-lg text-sm leading-6 text-white/45"
+                    }
+                  >
                     {currentItem.description}
                   </p>
                 )}
@@ -187,7 +217,13 @@ export default function MenuItemSheet({
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-medium">Size</h3>
 
-                <span className="text-xs text-white/30">Choose one</span>
+                <span
+                  className={
+                    g ? "text-xs text-ink/30" : "text-xs text-white/30"
+                  }
+                >
+                  Choose one
+                </span>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
@@ -200,8 +236,12 @@ export default function MenuItemSheet({
                       onClick={() => setSelectedSize(size)}
                       className={`flex items-center justify-between rounded-2xl border px-4 py-3.5 text-sm transition ${
                         selected
-                          ? "border-[#f5f2ea] bg-[#f5f2ea] text-[#0b0b0d]"
-                          : "border-white/10 bg-white/2.5 text-white/60 hover:border-white/20"
+                          ? g
+                            ? "border-ink bg-ink text-ink-dark"
+                            : "border-[#f5f2ea] bg-[#f5f2ea] text-[#0b0b0d]"
+                          : g
+                            ? "border-ink/10 bg-ink/2.5 text-ink/60 hover:border-ink/20"
+                            : "border-white/10 bg-white/2.5 text-white/60 hover:border-white/20"
                       }`}
                     >
                       <span>{size.name}</span>
@@ -231,16 +271,24 @@ export default function MenuItemSheet({
                       onClick={() => toggleAddon(addon)}
                       className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3.5 text-sm transition ${
                         selected
-                          ? "border-[#d7a45a]/60 bg-[#d7a45a]/10"
-                          : "border-white/10 bg-white/2.5 text-white/60 hover:border-white/20"
+                          ? g
+                            ? "border-ink/60 bg-ink/10"
+                            : "border-[#d7a45a]/60 bg-[#d7a45a]/10"
+                          : g
+                            ? "border-ink/10 bg-ink/2.5 text-ink/60 hover:border-ink/20"
+                            : "border-white/10 bg-white/2.5 text-white/60 hover:border-white/20"
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <span
                           className={`flex h-5 w-5 items-center justify-center rounded-md border ${
                             selected
-                              ? "border-[#d7a45a] bg-[#d7a45a] text-[#0b0b0d]"
-                              : "border-white/20"
+                              ? g
+                                ? "border-ink bg-ink text-ink-dark"
+                                : "border-[#d7a45a] bg-[#d7a45a] text-[#0b0b0d]"
+                              : g
+                                ? "border-ink/20"
+                                : "border-white/20"
                           }`}
                         >
                           {selected && "✓"}
@@ -273,8 +321,12 @@ export default function MenuItemSheet({
                       onClick={() => setSelectedGuestIndex(guestIndex)}
                       className={`rounded-full border px-4 py-2 text-sm transition ${
                         selected
-                          ? "border-[#d7a45a]/60 bg-[#d7a45a]/10 text-[#d7a45a]"
-                          : "border-white/10 bg-white/2.5 text-white/60 hover:border-white/20"
+                          ? g
+                            ? "border-ink/60 bg-ink/10 text-ink"
+                            : "border-[#d7a45a]/60 bg-[#d7a45a]/10 text-[#d7a45a]"
+                          : g
+                            ? "border-ink/10 bg-ink/2.5 text-ink/60 hover:border-ink/20"
+                            : "border-white/10 bg-white/2.5 text-white/60 hover:border-white/20"
                       }`}
                     >
                       {guest.name}
@@ -295,22 +347,42 @@ export default function MenuItemSheet({
               placeholder="Less sweet, no onions, extra crispy..."
               rows={3}
               maxLength={200}
-              className="w-full resize-none rounded-2xl border border-white/10 bg-white/2.5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-white/20"
+              className={
+                g
+                  ? "w-full resize-none rounded-2xl border border-ink/10 bg-ink/2.5 px-4 py-3 text-sm text-ink outline-none placeholder:text-ink/20 focus:border-ink/20"
+                  : "w-full resize-none rounded-2xl border border-white/10 bg-white/2.5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/20 focus:border-white/20"
+              }
             />
 
-            <p className="mt-2 text-right text-xs text-white/20">
+            <p
+              className={
+                g
+                  ? "mt-2 text-right text-xs text-ink/20"
+                  : "mt-2 text-right text-xs text-white/20"
+              }
+            >
               {note.length}/200
             </p>
           </div>
 
           {/* Quantity + Add */}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <div className="flex h-14 w-full items-center justify-between rounded-full border border-white/10 px-2 sm:w-36">
+            <div
+              className={
+                g
+                  ? "flex h-14 w-full items-center justify-between rounded-full border border-ink/10 px-2 sm:w-36"
+                  : "flex h-14 w-full items-center justify-between rounded-full border border-white/10 px-2 sm:w-36"
+              }
+            >
               <button
                 onClick={() =>
                   setQuantity((current) => Math.max(1, current - 1))
                 }
-                className="flex h-10 w-10 items-center justify-center rounded-full text-white/60 transition hover:bg-white/5 hover:text-white"
+                className={
+                  g
+                    ? "flex h-10 w-10 items-center justify-center rounded-full text-ink/60 transition hover:bg-ink/5 hover:text-ink"
+                    : "flex h-10 w-10 items-center justify-center rounded-full text-white/60 transition hover:bg-white/5 hover:text-white"
+                }
               >
                 <Minus size={16} />
               </button>
@@ -324,7 +396,11 @@ export default function MenuItemSheet({
                   )
                 }
                 disabled={quantity >= MAX_ITEM_QUANTITY}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-white/60 transition hover:bg-white/5 hover:text-white disabled:cursor-default disabled:text-white/15 disabled:hover:bg-transparent"
+                className={
+                  g
+                    ? "flex h-10 w-10 items-center justify-center rounded-full text-ink/60 transition hover:bg-ink/5 hover:text-ink disabled:cursor-default disabled:text-ink/15 disabled:hover:bg-transparent"
+                    : "flex h-10 w-10 items-center justify-center rounded-full text-white/60 transition hover:bg-white/5 hover:text-white disabled:cursor-default disabled:text-white/15 disabled:hover:bg-transparent"
+                }
               >
                 <Plus size={16} />
               </button>
@@ -332,7 +408,11 @@ export default function MenuItemSheet({
 
             <button
               onClick={handleAdd}
-              className="flex h-14 w-full items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99] sm:flex-1"
+              className={
+                g
+                  ? "flex h-14 w-full items-center justify-between rounded-full bg-ink px-6 text-sm font-medium text-ink-dark transition hover:scale-[1.01] active:scale-[0.99] sm:flex-1"
+                  : "flex h-14 w-full items-center justify-between rounded-full bg-[#f5f2ea] px-6 text-sm font-medium text-[#0b0b0d] transition hover:scale-[1.01] active:scale-[0.99] sm:flex-1"
+              }
             >
               <span>Add to order</span>
 

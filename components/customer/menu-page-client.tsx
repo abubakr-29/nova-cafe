@@ -286,7 +286,7 @@ function MenuPage({ tableId }: { tableId: string }) {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0b0b0d] text-white/40">
+      <main className="guest-page font-menu flex min-h-screen items-center justify-center text-ink/40">
         Loading menu...
       </main>
     );
@@ -362,7 +362,7 @@ function MenuPage({ tableId }: { tableId: string }) {
               onClick={() => setOrderingFor(index + 1)}
               className={`shrink-0 rounded-full border px-3 py-1 text-xs transition cursor-pointer ${
                 selected
-                  ? "border-[#ece9e1] bg-[#ece9e1] font-medium text-[#15120f]"
+                  ? "border-ink bg-ink font-medium text-ink-dark"
                   : "border-white/15 text-white/60 hover:bg-white/8"
               }`}
             >
@@ -376,7 +376,7 @@ function MenuPage({ tableId }: { tableId: string }) {
   const dockVisible = cartCount > 0 || sessionOrders.length > 0;
 
   return (
-    <main className="font-menu relative isolate min-h-screen overflow-x-clip text-[#ece9e1]">
+    <main className="font-menu relative isolate min-h-screen overflow-x-clip text-ink">
       <div
         className={`relative z-10 mx-auto max-w-2xl ${dockVisible ? "pb-28" : ""}`}
       >
@@ -396,7 +396,7 @@ function MenuPage({ tableId }: { tableId: string }) {
           </h1>
 
           <p className="mt-3 flex items-center gap-2 text-sm text-white/60">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#ece9e1]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-ink" />
             {currentTable.name}
           </p>
         </header>
@@ -413,7 +413,7 @@ function MenuPage({ tableId }: { tableId: string }) {
                   ? "Waiting for the café to confirm"
                   : "Your bill is ready"}
               </span>
-              <span className="text-xs font-semibold text-[#ece9e1]">
+              <span className="text-xs font-semibold text-ink">
                 View bill →
               </span>
             </button>
@@ -426,7 +426,7 @@ function MenuPage({ tableId }: { tableId: string }) {
             className="mx-5 mb-4 flex w-[calc(100%-40px)] items-center justify-between gap-4 rounded-2xl border border-white/15 bg-black/25 px-5 py-4 text-left backdrop-blur transition hover:bg-black/35 cursor-pointer"
           >
             <span className="min-w-0">
-              <span className="block text-xs font-medium text-[#ece9e1]">
+              <span className="block text-xs font-medium text-ink">
                 {awaitingOrders.length === 1
                   ? `Order #${awaitingOrders[0].orderNumber} is waiting for staff`
                   : `${awaitingOrders.length} orders are waiting for staff`}
@@ -439,7 +439,7 @@ function MenuPage({ tableId }: { tableId: string }) {
             </span>
 
             {awaitingOrders.length === 1 && (
-              <span className="shrink-0 text-xl font-semibold tracking-[0.25em] text-[#ece9e1]">
+              <span className="shrink-0 text-xl font-semibold tracking-[0.25em] text-ink">
                 {awaitingOrders[0].validationCode}
               </span>
             )}
@@ -500,7 +500,7 @@ function MenuPage({ tableId }: { tableId: string }) {
                   setSelectedItem(null);
                   setCartDrawerOpen(true);
                 }}
-                className="flex h-14 min-w-0 flex-1 items-center justify-between rounded-full bg-[#ece9e1] px-6 text-sm font-semibold text-[#15120f] transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                className="flex h-14 min-w-0 flex-1 items-center justify-between rounded-full bg-ink px-6 text-sm font-semibold text-ink-dark transition hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
               >
                 <span className="flex items-center gap-2">
                   <ShoppingBag size={16} />
@@ -515,6 +515,7 @@ function MenuPage({ tableId }: { tableId: string }) {
       )}
 
       <MenuItemSheet
+        variant="guest"
         key={selectedItem?.id ?? "closed"}
         item={selectedItem}
         guests={displayGuests}
@@ -524,6 +525,7 @@ function MenuPage({ tableId }: { tableId: string }) {
       />
 
       <CartDrawer
+        variant="guest"
         items={cart}
         guests={displayGuests}
         open={cartDrawerOpen}
@@ -583,9 +585,9 @@ function NotFoundScreen({
   message: string;
 }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#0b0b0d] px-6 text-center text-[#f5f2ea]">
+    <main className="guest-page font-menu flex min-h-screen flex-col items-center justify-center px-6 text-center">
       <h1 className="text-2xl font-medium">{title}</h1>
-      <p className="mt-3 max-w-sm text-sm leading-6 text-white/40">{message}</p>
+      <p className="mt-3 max-w-sm text-sm leading-6 text-ink/45">{message}</p>
     </main>
   );
 }
